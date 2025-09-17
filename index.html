@@ -3,20 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Call Website</title>
+  <title>Voice Call App</title>
   <link rel="stylesheet" href="style.css">
-  <!-- Socket.IO client -->
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 </head>
 <body>
-  <h1>📞 Simple WebRTC Call</h1>
+  <div class="app">
+    <h1>📞 Voice Call</h1>
+    <p>Status: <span id="status">Idle</span></p>
 
-  <div id="videos">
-    <video id="localVideo" autoplay playsinline muted></video>
-    <video id="remoteVideo" autoplay playsinline></video>
+    <div class="controls">
+      <button id="startCall">Start Call</button>
+      <button id="endCall" disabled>End Call</button>
+      <button id="muteBtn" disabled>Mute</button>
+    </div>
   </div>
 
-  <button id="startCall">Start Call</button>
+  <!-- hidden audio elements -->
+  <audio id="localAudio" autoplay muted></audio>
+  <audio id="remoteAudio" autoplay></audio>
 
   <script src="script.js"></script>
 </body>
