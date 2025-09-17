@@ -4,52 +4,47 @@
   <meta charset="UTF-8">
   <title>📞 Voice Call App</title>
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; background: #f5f5f5; }
+    body { font-family: Arial; text-align: center; background: #f5f5f5; }
     h1 { margin-top: 20px; }
-    #nicknameScreen, #menuScreen, #callScreen { display: none; margin-top: 20px; }
-    input, button { padding: 10px; margin: 8px; font-size: 16px; border-radius: 6px; border: 1px solid #ccc; }
+    .screen { display: none; margin-top: 20px; }
+    input, button { padding: 10px; margin: 5px; font-size: 16px; border-radius: 5px; }
     button { cursor: pointer; background: #007bff; color: white; border: none; }
     button:hover { background: #0056b3; }
-    #participants { font-weight: bold; }
-    #status { color: green; }
+    audio { display: none; }
   </style>
 </head>
 <body>
   <h1>📞 Voice Call App</h1>
+  <p>Your Number: <span id="myNumber"></span></p>
   <p>Status: <span id="status">Idle</span></p>
 
-  <!-- Nickname Screen -->
-  <div id="nicknameScreen">
-    <h2>Welcome 🎉</h2>
-    <p>Enter a nickname:</p>
-    <input id="nicknameInput" placeholder="Your name">
-    <button id="saveNickname">Continue</button>
+  <!-- Call Menu -->
+  <div id="menuScreen" class="screen">
+    <input id="callNumberInput" placeholder="Enter number to call">
+    <button id="callBtn">Call</button>
   </div>
 
-  <!-- Menu Screen -->
-  <div id="menuScreen">
-    <h2>Hello, <span id="userName"></span></h2>
-    <button id="startCallBtn">📞 Start Call</button>
-    <button id="joinCallBtn">🔑 Join Call</button>
+  <!-- Incoming Call -->
+  <div id="incomingScreen" class="screen">
+    <p>Incoming call from: <span id="callerNumber"></span></p>
+    <button id="acceptBtn">Accept</button>
+    <button id="denyBtn">Deny</button>
   </div>
 
-  <!-- Call Screen -->
-  <div id="callScreen">
-    <h2>Room: <span id="roomCodeLabel"></span></h2>
-    <p>Participants: <span id="participants"></span></p>
-    <button id="endBtn">❌ End Call</button>
+  <!-- In Call -->
+  <div id="callScreen" class="screen">
+    <p>In call with: <span id="remoteNumber"></span></p>
+    <button id="endBtn">End Call</button>
     <button id="muteBtn">Mute</button>
-    <br><br>
-    <!-- Audio elements (voice only) -->
     <audio id="localAudio" autoplay muted></audio>
     <audio id="remoteAudio" autoplay></audio>
   </div>
 
-  <!-- Firebase + App Script -->
+  <!-- Firebase -->
   <script type="module">
-    // 🔹 Your Firebase snippet (unchanged)
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-analytics.js";
+    import { getDatabase, ref, set, push, onValue, onChildAdded, remove, get } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCzfjcgM1LDpdplvnZ70TZMwiCdfJBaCSI",
@@ -64,167 +59,174 @@
 
     const app = initializeApp(firebaseConfig);
     const analytics = getAnalytics(app);
-
-    // 🔹 Add Realtime Database imports & setup
-    import {
-      getDatabase,
-      ref,
-      set,
-      push,
-      onValue,
-      onChildAdded,
-      remove,
-      get
-    } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
-
     const db = getDatabase(app);
 
-    // --------------------------
-    // Voice Call App Logic
-    // --------------------------
-    let nickname = localStorage.getItem("nickname") || null;
-    let room = null;
-    let pc, localStream;
-    let isMuted = false;
+    // -----------------------
+    // State & Elements
+    // -----------------------
+    let myNumber = localStorage.getItem("myNumber") || Math.floor(10000 + Math.random()*90000).toString();
+    localStorage.setItem("myNumber", myNumber);
 
-    const statusEl = document.getElementById("status");
-    const nicknameScreen = document.getElementById("nicknameScreen");
     const menuScreen = document.getElementById("menuScreen");
+    const incomingScreen = document.getElementById("incomingScreen");
     const callScreen = document.getElementById("callScreen");
 
-    const userNameEl = document.getElementById("userName");
-    const roomCodeLabel = document.getElementById("roomCodeLabel");
-    const participantsEl = document.getElementById("participants");
+    const callNumberInput = document.getElementById("callNumberInput");
+    const callBtn = document.getElementById("callBtn");
 
-    const nicknameInput = document.getElementById("nicknameInput");
-    const saveNicknameBtn = document.getElementById("saveNickname");
-    const startCallBtn = document.getElementById("startCallBtn");
-    const joinCallBtn = document.getElementById("joinCallBtn");
+    const callerNumberEl = document.getElementById("callerNumber");
+    const acceptBtn = document.getElementById("acceptBtn");
+    const denyBtn = document.getElementById("denyBtn");
+
+    const remoteNumberEl = document.getElementById("remoteNumber");
     const endBtn = document.getElementById("endBtn");
     const muteBtn = document.getElementById("muteBtn");
 
+    const statusEl = document.getElementById("status");
     const localAudio = document.getElementById("localAudio");
     const remoteAudio = document.getElementById("remoteAudio");
 
+    document.getElementById("myNumber").innerText = myNumber;
+
+    let pc, localStream, remoteNumber, callRef;
+    let isMuted = false;
+
     function show(screen) {
-      nicknameScreen.style.display = screen === "nick" ? "block" : "none";
       menuScreen.style.display = screen === "menu" ? "block" : "none";
+      incomingScreen.style.display = screen === "incoming" ? "block" : "none";
       callScreen.style.display = screen === "call" ? "block" : "none";
     }
 
-    function updateStatus(msg) {
-      statusEl.textContent = msg;
-    }
+    function updateStatus(msg) { statusEl.innerText = msg; }
 
-    if (!nickname) {
-      show("nick");
-    } else {
-      userNameEl.textContent = nickname;
-      show("menu");
-    }
+    show("menu");
 
-    saveNicknameBtn.onclick = () => {
-      const name = nicknameInput.value.trim();
-      if (name.length < 2) return alert("Enter a valid name!");
-      nickname = name;
-      localStorage.setItem("nickname", name);
-      userNameEl.textContent = name;
-      show("menu");
-    };
+    const servers = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
 
-    function randomCode() {
-      return Math.floor(10000 + Math.random() * 90000).toString();
-    }
+    // -----------------------
+    // Listen for incoming calls
+    // -----------------------
+    const callsRef = ref(db, "calls");
+    onChildAdded(callsRef, snapshot => {
+      const call = snapshot.val();
+      const callId = snapshot.key;
+      if(call.to === myNumber && !pc){
+        // Incoming call
+        remoteNumber = call.from;
+        callerNumberEl.innerText = remoteNumber;
+        show("incoming");
+        callRef = ref(db, `calls/${callId}`);
+      }
+    });
 
-    startCallBtn.onclick = () => {
-      room = randomCode();
-      beginCall(room);
-    };
-
-    joinCallBtn.onclick = () => {
-      room = prompt("Enter 5-digit code:");
-      if (!room || !/^\d{5}$/.test(room)) return alert("Invalid code");
-      beginCall(room);
-    };
-
-    async function beginCall(roomCode) {
-      room = roomCode;
-      roomCodeLabel.textContent = room;
+    // -----------------------
+    // Accept / Deny buttons
+    // -----------------------
+    acceptBtn.onclick = async () => {
+      await setupCall(remoteNumber, true);
       show("call");
-      updateStatus("Joining room " + room);
+    };
 
-      set(ref(db, "calls/" + room + "/participants/" + nickname), true);
+    denyBtn.onclick = async () => {
+      remove(callRef);
+      show("menu");
+    };
 
-      onValue(ref(db, "calls/" + room + "/participants"), snap => {
-        const names = snap.val() ? Object.keys(snap.val()) : [];
-        participantsEl.textContent = names.join(", ");
-      });
+    // -----------------------
+    // Make a call
+    // -----------------------
+    callBtn.onclick = async () => {
+      const toNumber = callNumberInput.value.trim();
+      if(toNumber.length!==5) return alert("Enter a valid 5-digit number");
 
-      pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+      remoteNumber = toNumber;
+
+      // Create call object
+      const newCallRef = push(ref(db, "calls"));
+      await set(newCallRef, { from: myNumber, to: toNumber });
+
+      callRef = newCallRef;
+
+      await setupCall(toNumber, false);
+      show("call");
+    };
+
+    // -----------------------
+    // Setup WebRTC call
+    // -----------------------
+    async function setupCall(remoteNum, isAnswer) {
+      pc = new RTCPeerConnection(servers);
+
+      // Local audio
       localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
       localAudio.srcObject = localStream;
 
-      pc.ontrack = e => {
-        remoteAudio.srcObject = e.streams[0];
-        updateStatus("In call 🎤");
-      };
+      // Remote audio
+      pc.ontrack = (event) => { remoteAudio.srcObject = event.streams[0]; };
 
-      pc.onicecandidate = e => {
-        if (e.candidate) {
-          push(ref(db, "calls/" + room + "/candidates"), JSON.stringify(e.candidate));
+      // ICE candidates
+      pc.onicecandidate = (event) => {
+        if(event.candidate){
+          push(ref(db, `calls/${myNumber}_${remoteNum}/candidates`), event.candidate.toJSON());
         }
       };
 
-      const offerRef = ref(db, "calls/" + room + "/offer");
-      const answerRef = ref(db, "calls/" + room + "/answer");
-
-      onValue(offerRef, async snap => {
-        if (snap.val() && !pc.currentRemoteDescription) {
-          const offer = JSON.parse(snap.val());
-          await pc.setRemoteDescription(new RTCSessionDescription(offer));
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-          set(answerRef, JSON.stringify(answer));
-        }
+      // Listen for remote candidates
+      const candidatesRef = ref(db, `calls/${remoteNum}_${myNumber}/candidates`);
+      onChildAdded(candidatesRef, snapshot => {
+        pc.addIceCandidate(new RTCIceCandidate(snapshot.val()));
       });
 
-      onValue(answerRef, async snap => {
-        if (snap.val() && !pc.currentRemoteDescription) {
-          const answer = JSON.parse(snap.val());
-          await pc.setRemoteDescription(new RTCSessionDescription(answer));
-        }
-      });
-
-      onChildAdded(ref(db, "calls/" + room + "/candidates"), async snap => {
-        try {
-          await pc.addIceCandidate(new RTCIceCandidate(JSON.parse(snap.val())));
-        } catch (e) {
-          console.error("ICE error", e);
-        }
-      });
-
-      const offerSnap = await get(offerRef);
-      if (!offerSnap.exists()) {
+      // Create offer or answer
+      if(!isAnswer){
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-        set(offerRef, JSON.stringify(offer));
+        await set(ref(db, `calls/${myNumber}_${remoteNum}/offer`), offer.toJSON());
+
+        // Listen for answer
+        onValue(ref(db, `calls/${remoteNum}_${myNumber}/answer`), async snap=>{
+          const ans = snap.val();
+          if(ans && !pc.currentRemoteDescription){
+            await pc.setRemoteDescription(new RTCSessionDescription(ans));
+          }
+        });
+      } else {
+        // Get offer
+        const offerSnap = await get(ref(db, `calls/${remoteNum}_${myNumber}/offer`));
+        const offer = offerSnap.val();
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+
+        // Create answer
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        await set(ref(db, `calls/${myNumber}_${remoteNum}/answer`), answer.toJSON());
       }
+      remoteNumberEl.innerText = remoteNum;
+      updateStatus("In call 🎤");
     }
 
+    // -----------------------
+    // End call
+    // -----------------------
     endBtn.onclick = () => {
-      if (pc) pc.close();
-      if (localStream) localStream.getTracks().forEach(t => t.stop());
-      remove(ref(db, "calls/" + room + "/participants/" + nickname));
-      updateStatus("Call ended");
+      if(pc) pc.close();
+      if(localStream) localStream.getTracks().forEach(t=>t.stop());
+      if(callRef) remove(callRef);
+      pc = null;
+      callRef = null;
       show("menu");
+      updateStatus("Idle");
     };
 
+    // -----------------------
+    // Mute
+    // -----------------------
     muteBtn.onclick = () => {
-      if (!localStream) return;
+      if(!localStream) return;
       const track = localStream.getAudioTracks()[0];
       track.enabled = !track.enabled;
-      muteBtn.textContent = track.enabled ? "Mute" : "Unmute";
+      muteBtn.innerText = track.enabled?"Mute":"Unmute";
     };
   </script>
 </body>
