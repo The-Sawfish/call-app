@@ -10,7 +10,8 @@
     input, button { padding: 10px; margin: 5px; font-size: 16px; border-radius: 5px; }
     button { cursor: pointer; background: #007bff; color: white; border: none; }
     button:hover { background: #0056b3; }
-    audio { display: none; }
+    .danger { background: red; }
+    .secondary { background: gray; }
   </style>
 </head>
 <body>
@@ -28,14 +29,14 @@
   <div id="incomingScreen" class="screen">
     <p>Incoming call from: <span id="callerNumber"></span></p>
     <button id="acceptBtn">Accept</button>
-    <button id="denyBtn">Deny</button>
+    <button id="denyBtn" class="danger">Deny</button>
   </div>
 
   <!-- In Call -->
   <div id="callScreen" class="screen">
     <p>In call with: <span id="remoteNumber"></span></p>
-    <button id="endBtn">End Call</button>
-    <button id="muteBtn">Mute</button>
+    <button id="endBtn" class="danger">End Call</button>
+    <button id="muteBtn" class="secondary">Mute</button>
     <audio id="localAudio" autoplay muted></audio>
     <audio id="remoteAudio" autoplay></audio>
   </div>
@@ -44,8 +45,9 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-analytics.js";
-    import { getDatabase, ref, set, push, onValue, onChildAdded, remove, get } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+    import { getDatabase, ref, set, push, onValue, onChildAdded, remove, get, update } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
+    // --- Firebase Config ---
     const firebaseConfig = {
       apiKey: "AIzaSyCzfjcgM1LDpdplvnZ70TZMwiCdfJBaCSI",
       authDomain: "voice-call-bef3b.firebaseapp.com",
@@ -61,12 +63,14 @@
     const analytics = getAnalytics(app);
     const db = getDatabase(app);
 
-    // -----------------------
-    // State & Elements
-    // -----------------------
+    // --- State ---
     let myNumber = localStorage.getItem("myNumber") || Math.floor(10000 + Math.random()*90000).toString();
     localStorage.setItem("myNumber", myNumber);
 
+    let pc, localStream, remoteNumber, callPath;
+    let isMuted = false;
+
+    // --- Elements ---
     const menuScreen = document.getElementById("menuScreen");
     const incomingScreen = document.getElementById("incomingScreen");
     const callScreen = document.getElementById("callScreen");
@@ -88,73 +92,72 @@
 
     document.getElementById("myNumber").innerText = myNumber;
 
-    let pc, localStream, remoteNumber, callRef;
-    let isMuted = false;
-
-    function show(screen) {
-      menuScreen.style.display = screen === "menu" ? "block" : "none";
-      incomingScreen.style.display = screen === "incoming" ? "block" : "none";
-      callScreen.style.display = screen === "call" ? "block" : "none";
+    function show(screen){
+      menuScreen.style.display = (screen==="menu")?"block":"none";
+      incomingScreen.style.display = (screen==="incoming")?"block":"none";
+      callScreen.style.display = (screen==="call")?"block":"none";
     }
-
-    function updateStatus(msg) { statusEl.innerText = msg; }
-
+    function updateStatus(msg){ statusEl.innerText = msg; }
     show("menu");
 
     const servers = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
 
     // -----------------------
+    // Start call
+    // -----------------------
+    callBtn.onclick = async () => {
+      const toNumber = callNumberInput.value.trim();
+      if(toNumber.length!==5 || toNumber===myNumber) return alert("Invalid number");
+
+      remoteNumber = toNumber;
+      callPath = `calls/${myNumber}_${remoteNumber}`;
+
+      // Mark call as ringing
+      await set(ref(db, callPath), { from: myNumber, to: remoteNumber, status: "ringing" });
+
+      await setupConnection(false);
+      show("call");
+      updateStatus("Calling...");
+    };
+
+    // -----------------------
     // Listen for incoming calls
     // -----------------------
-    const callsRef = ref(db, "calls");
-    onChildAdded(callsRef, snapshot => {
-      const call = snapshot.val();
-      const callId = snapshot.key;
-      if(call.to === myNumber && !pc){
-        // Incoming call
-        remoteNumber = call.from;
-        callerNumberEl.innerText = remoteNumber;
-        show("incoming");
-        callRef = ref(db, `calls/${callId}`);
+    onValue(ref(db, "calls"), snapshot => {
+      const calls = snapshot.val() || {};
+      for(const key in calls){
+        const call = calls[key];
+        if(call.to===myNumber && call.status==="ringing"){
+          remoteNumber = call.from;
+          callPath = `calls/${remoteNumber}_${myNumber}`;
+          callerNumberEl.innerText = remoteNumber;
+          show("incoming");
+          updateStatus("Incoming call");
+          break;
+        }
       }
     });
 
     // -----------------------
-    // Accept / Deny buttons
+    // Accept / Deny
     // -----------------------
     acceptBtn.onclick = async () => {
-      await setupCall(remoteNumber, true);
+      await update(ref(db, callPath), { status: "in-progress" });
+      await setupConnection(true);
       show("call");
+      updateStatus("In Call 🎤");
     };
 
     denyBtn.onclick = async () => {
-      remove(callRef);
+      await remove(ref(db, callPath));
       show("menu");
+      updateStatus("Idle");
     };
 
     // -----------------------
-    // Make a call
+    // WebRTC Setup
     // -----------------------
-    callBtn.onclick = async () => {
-      const toNumber = callNumberInput.value.trim();
-      if(toNumber.length!==5) return alert("Enter a valid 5-digit number");
-
-      remoteNumber = toNumber;
-
-      // Create call object
-      const newCallRef = push(ref(db, "calls"));
-      await set(newCallRef, { from: myNumber, to: toNumber });
-
-      callRef = newCallRef;
-
-      await setupCall(toNumber, false);
-      show("call");
-    };
-
-    // -----------------------
-    // Setup WebRTC call
-    // -----------------------
-    async function setupCall(remoteNum, isAnswer) {
+    async function setupConnection(isAnswer){
       pc = new RTCPeerConnection(servers);
 
       // Local audio
@@ -163,65 +166,58 @@
       localAudio.srcObject = localStream;
 
       // Remote audio
-      pc.ontrack = (event) => { remoteAudio.srcObject = event.streams[0]; };
+      pc.ontrack = (event)=>{ remoteAudio.srcObject = event.streams[0]; };
 
-      // ICE candidates
-      pc.onicecandidate = (event) => {
-        if(event.candidate){
-          push(ref(db, `calls/${myNumber}_${remoteNum}/candidates`), event.candidate.toJSON());
+      // ICE
+      pc.onicecandidate = (e)=>{
+        if(e.candidate){
+          push(ref(db, `${callPath}/candidates/${isAnswer?"answer":"offer"}`), e.candidate.toJSON());
         }
       };
 
-      // Listen for remote candidates
-      const candidatesRef = ref(db, `calls/${remoteNum}_${myNumber}/candidates`);
-      onChildAdded(candidatesRef, snapshot => {
-        pc.addIceCandidate(new RTCIceCandidate(snapshot.val()));
-      });
-
-      // Create offer or answer
       if(!isAnswer){
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-        await set(ref(db, `calls/${myNumber}_${remoteNum}/offer`), offer.toJSON());
+        await set(ref(db, `${callPath}/offer`), offer.toJSON());
 
-        // Listen for answer
-        onValue(ref(db, `calls/${remoteNum}_${myNumber}/answer`), async snap=>{
+        // Wait for answer
+        onValue(ref(db, `${callPath}/answer`), async snap=>{
           const ans = snap.val();
           if(ans && !pc.currentRemoteDescription){
             await pc.setRemoteDescription(new RTCSessionDescription(ans));
           }
         });
+
       } else {
-        // Get offer
-        const offerSnap = await get(ref(db, `calls/${remoteNum}_${myNumber}/offer`));
+        const offerSnap = await get(ref(db, `${callPath}/offer`));
         const offer = offerSnap.val();
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
 
-        // Create answer
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-        await set(ref(db, `calls/${myNumber}_${remoteNum}/answer`), answer.toJSON());
+        await set(ref(db, `${callPath}/answer`), answer.toJSON());
       }
-      remoteNumberEl.innerText = remoteNum;
-      updateStatus("In call 🎤");
+
+      // Candidate exchange
+      onChildAdded(ref(db, `${callPath}/candidates/${isAnswer?"offer":"answer"}`), snap=>{
+        pc.addIceCandidate(new RTCIceCandidate(snap.val()));
+      });
+
+      remoteNumberEl.innerText = remoteNumber;
     }
 
     // -----------------------
-    // End call
+    // End / Mute
     // -----------------------
-    endBtn.onclick = () => {
+    endBtn.onclick = async () => {
       if(pc) pc.close();
       if(localStream) localStream.getTracks().forEach(t=>t.stop());
-      if(callRef) remove(callRef);
-      pc = null;
-      callRef = null;
+      if(callPath) await remove(ref(db, callPath));
+      pc=null; callPath=null;
       show("menu");
       updateStatus("Idle");
     };
 
-    // -----------------------
-    // Mute
-    // -----------------------
     muteBtn.onclick = () => {
       if(!localStream) return;
       const track = localStream.getAudioTracks()[0];
