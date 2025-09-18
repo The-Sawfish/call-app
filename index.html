@@ -123,16 +123,7 @@
   <!-- Firebase + App Logic -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-    import {
-      getDatabase,
-      ref,
-      set,
-      update,
-      remove,
-      onValue,
-      push,
-      get
-    } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+    import { getDatabase, ref, set, update, remove, onValue } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
     // --- Firebase Config (yours) ---
     const firebaseConfig = {
@@ -165,7 +156,7 @@
     const remoteAudio = document.getElementById("remoteAudio");
 
     let pc, localStream, remoteStream;
-    let myNumber, remoteNumber, callKey, callPath;
+    let myNumber, remoteNumber, callPath;
 
     // --- Helpers ---
     function show(id) {
@@ -194,9 +185,8 @@
     // Theme toggle
     toggleTheme.onclick = () => document.body.classList.toggle("dark");
 
-    // --- WebRTC setup (shared) ---
+    // --- Call setup ---
     async function setupConnection(isAnswer) {
-      // create pc & streams
       pc = new RTCPeerConnection();
       remoteStream = new MediaStream();
       remoteAudio.srcObject = remoteStream;
@@ -210,77 +200,49 @@
       }
 
       pc.ontrack = (event) => {
-        // add tracks into remoteStream (avoids replacing)
-        event.streams[0].getTracks().forEach(t => remoteStream.addTrack(t));
+        event.streams[0].getTracks().forEach(track => remoteStream.addTrack(track));
       };
 
       pc.onicecandidate = (e) => {
         if (e.candidate) {
           const side = isAnswer ? "answer" : "offer";
-          // push each candidate entry (safe)
-          push(ref(db, callPath + `/candidates/${side}`), { candidate: e.candidate.toJSON() });
+          update(ref(db, callPath + "/candidates/" + side + "/" + e.candidate.sdpMid), { candidate: e.candidate.toJSON() });
         }
       };
 
       if (!isAnswer) {
-        // Caller: create offer and set it at callPath
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         await set(ref(db, callPath), { from: myNumber, to: remoteNumber, status: "ringing", offer });
-        // wait for answer once
         onValue(ref(db, callPath + "/answer"), async snap => {
-          if (snap.exists() && !pc.currentRemoteDescription) {
+          if (snap.exists()) {
             const ans = snap.val();
             await pc.setRemoteDescription(new RTCSessionDescription(ans));
-            // show call UI when answer applied
             show("call");
-            updateStatus("In Call");
+            updateStatus("In Call 🎤");
           }
         });
       } else {
-        // Callee: read offer once and reply with answer
-        const offerSnap = await get(ref(db, callPath + "/offer"));
-        if (offerSnap.exists()) {
-          const offer = offerSnap.val();
-          await pc.setRemoteDescription(new RTCSessionDescription(offer));
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-          // store answer and mark in-progress
-          await update(ref(db, callPath), { answer: answer, status: "in-progress" });
-          // show call UI after creating answer
-          show("call");
-          updateStatus("In Call");
-        } else {
-          // if offer not there, still listen (rare)
-          onValue(ref(db, callPath + "/offer"), async snap => {
-            if (snap.exists() && !pc.currentRemoteDescription) {
-              const offer = snap.val();
-              await pc.setRemoteDescription(new RTCSessionDescription(offer));
-              const answer = await pc.createAnswer();
-              await pc.setLocalDescription(answer);
-              await update(ref(db, callPath), { answer: answer, status: "in-progress" });
-              show("call");
-              updateStatus("In Call");
-            }
-          });
-        }
+        onValue(ref(db, callPath + "/offer"), async snap => {
+          if (snap.exists()) {
+            const offer = snap.val();
+            await pc.setRemoteDescription(new RTCSessionDescription(offer));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            await update(ref(db, callPath), { answer, status: "in-progress" });
+          }
+        });
       }
 
-      // Candidate listeners (both sides)
+      // ICE candidates
       onValue(ref(db, callPath + "/candidates/offer"), snap => {
         snap.forEach(s => {
-          const obj = s.val();
-          if (obj && obj.candidate) {
-            pc.addIceCandidate(new RTCIceCandidate(obj.candidate)).catch(e => console.warn("ICE add error:", e));
-          }
+          pc.addIceCandidate(new RTCIceCandidate(s.val().candidate));
         });
       });
       onValue(ref(db, callPath + "/candidates/answer"), snap => {
         snap.forEach(s => {
-          const obj = s.val();
-          if (obj && obj.candidate) {
-            pc.addIceCandidate(new RTCIceCandidate(obj.candidate)).catch(e => console.warn("ICE add error:", e));
-          }
+          pc.addIceCandidate(new RTCIceCandidate(s.val().candidate));
         });
       });
     }
@@ -289,111 +251,59 @@
     callBtn.onclick = () => {
       remoteNumber = callInput.value.trim();
       if (!remoteNumber) return alert("Enter a number to call");
-      // deterministic key: caller_receiver
-      callKey = `${myNumber}_${remoteNumber}`;
-      callPath = `calls/${callKey}`;
+      callPath = `calls/${myNumber}_${remoteNumber}`;
       setupConnection(false);
       updateStatus("Calling...");
-      show("call"); // show call UI immediately for caller
-      peerNumberEl.textContent = remoteNumber;
     };
 
     acceptBtn.onclick = async () => {
-      if (!callPath) {
-        // safety: try to compute callPath if missing by scanning calls
-        const callsSnap = await get(ref(db, "calls"));
-        const calls = callsSnap.exists() ? callsSnap.val() : {};
-        for (const k in calls) {
-          const c = calls[k];
-          if (c.to === myNumber && c.status === "ringing") {
-            callKey = k;
-            callPath = `calls/${callKey}`;
-            remoteNumber = c.from;
-            break;
-          }
-        }
-        if (!callPath) return alert("No active incoming call found.");
-      }
-      // mark in-progress and setup as callee
       await update(ref(db, callPath), { status: "in-progress" });
       await setupConnection(true);
       peerNumberEl.textContent = remoteNumber;
       show("call");
-      updateStatus("In Call");
+      updateStatus("In Call 🎤");
     };
 
     denyBtn.onclick = async () => {
-      if (!callPath) {
-        // locate and remove the incoming call (defensive)
-        const callsSnap = await get(ref(db, "calls"));
-        const calls = callsSnap.exists() ? callsSnap.val() : {};
-        for (const k in calls) {
-          const c = calls[k];
-          if (c.to === myNumber && c.status === "ringing") {
-            await remove(ref(db, `calls/${k}`));
-            break;
-          }
-        }
-      } else {
-        await remove(ref(db, callPath));
-      }
+      await remove(ref(db, callPath));
       show("menu");
       updateStatus("Idle");
     };
 
     endBtn.onclick = async () => {
       if (pc) pc.close();
-      pc = null;
-      if (callPath) {
-        await remove(ref(db, callPath));
-      }
+      await remove(ref(db, callPath));
       show("menu");
       updateStatus("Call Ended");
     };
 
     muteBtn.onclick = () => {
       if (localStream) {
-        const track = localStream.getAudioTracks()[0];
+        const track = localStream.getTracks()[0];
         track.enabled = !track.enabled;
         muteBtn.textContent = track.enabled ? "🔇 Mute" : "🔊 Unmute";
       }
     };
 
     // --- Incoming call listener ---
-    onValue(ref(db, "calls"), (snap) => {
+    onValue(ref(db, "calls"), snap => {
       const calls = snap.val() || {};
-      // Prefer the first ringing call directed to me
-      let foundKey = null;
       for (const key in calls) {
         const call = calls[key];
-        if (call && call.to === myNumber && call.status === "ringing") {
-          foundKey = key;
+        if (call.to === myNumber && call.status === "ringing") {
           remoteNumber = call.from;
-          break;
+          callPath = `calls/${remoteNumber}_${myNumber}`;
+          callerNumberEl.textContent = remoteNumber;
+          show("incoming");
+          updateStatus("Incoming Call...");
+        }
+        // auto-deny if caller hangs up
+        if (call.to === myNumber && call.status === "ended") {
+          show("menu");
+          updateStatus("Caller hung up.");
         }
       }
-      if (foundKey) {
-        callKey = foundKey;
-        callPath = `calls/${callKey}`;
-        callerNumberEl.textContent = remoteNumber;
-        show("incoming");
-        updateStatus("Incoming Call...");
-        // auto-close if caller removed the call before accept
-        onValue(ref(db, callPath), subSnap => {
-          if (!subSnap.exists()) {
-            show("menu");
-            updateStatus("Caller cancelled");
-            // cleanup local callPath
-            callKey = null;
-            callPath = null;
-          }
-        });
-      }
     });
-
-    // start on menu
-    show("menu");
-    updateStatus("Idle");
   </script>
 </body>
 </html>
