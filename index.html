@@ -1,53 +1,44 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="UTF-8">
-  <title>📞 Voice Call App</title>
+  <title>Voice Call App</title>
   <style>
-    body { font-family: Arial; text-align: center; background: #f5f5f5; }
-    h1 { margin-top: 20px; }
-    .screen { display: none; margin-top: 20px; }
-    input, button { padding: 10px; margin: 5px; font-size: 16px; border-radius: 5px; }
-    button { cursor: pointer; background: #007bff; color: white; border: none; }
-    button:hover { background: #0056b3; }
-    .danger { background: red; }
-    .secondary { background: gray; }
+    body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+    .screen { display: none; }
+    button { padding: 10px 20px; margin: 5px; font-size: 16px; }
   </style>
 </head>
 <body>
-  <h1>📞 Voice Call App</h1>
-  <p>Your Number: <span id="myNumber"></span></p>
-  <p>Status: <span id="status">Idle</span></p>
+  <h1>Voice Call</h1>
+  <div id="status">Loading...</div>
 
-  <!-- Call Menu -->
-  <div id="menuScreen" class="screen">
-    <input id="callNumberInput" placeholder="Enter number to call">
+  <!-- Home -->
+  <div id="home" class="screen">
+    <p>Your Number: <span id="myNumber"></span></p>
+    <input id="targetNumber" placeholder="Enter number to call">
     <button id="callBtn">Call</button>
   </div>
 
-  <!-- Incoming Call -->
-  <div id="incomingScreen" class="screen">
-    <p>Incoming call from: <span id="callerNumber"></span></p>
+  <!-- Incoming -->
+  <div id="incoming" class="screen">
+    <p>Incoming call from <span id="callerNumber"></span></p>
     <button id="acceptBtn">Accept</button>
-    <button id="denyBtn" class="danger">Deny</button>
+    <button id="denyBtn">Deny</button>
   </div>
 
-  <!-- In Call -->
-  <div id="callScreen" class="screen">
-    <p>In call with: <span id="remoteNumber"></span></p>
-    <button id="endBtn" class="danger">End Call</button>
-    <button id="muteBtn" class="secondary">Mute</button>
-    <audio id="localAudio" autoplay muted></audio>
-    <audio id="remoteAudio" autoplay></audio>
+  <!-- Call -->
+  <div id="call" class="screen">
+    <p>In call with <span id="withNumber"></span></p>
+    <button id="endBtn">End Call</button>
+    <button id="muteBtn">Mute</button>
   </div>
 
-  <!-- Firebase -->
   <script type="module">
+    // --- Firebase ---
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-    import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-analytics.js";
-    import { getDatabase, ref, set, push, onValue, onChildAdded, remove, get, update } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+    import { getDatabase, ref, set, update, onValue, onChildAdded, remove } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
-    // --- Firebase Config ---
     const firebaseConfig = {
       apiKey: "AIzaSyCzfjcgM1LDpdplvnZ70TZMwiCdfJBaCSI",
       authDomain: "voice-call-bef3b.firebaseapp.com",
@@ -58,172 +49,171 @@
       appId: "1:280467966695:web:1cfdc7f7bcef6a677db042",
       measurementId: "G-P1MEWVE8SN"
     };
-
     const app = initializeApp(firebaseConfig);
-    const analytics = getAnalytics(app);
     const db = getDatabase(app);
 
-    // --- State ---
-    let myNumber = localStorage.getItem("myNumber") || Math.floor(10000 + Math.random()*90000).toString();
-    localStorage.setItem("myNumber", myNumber);
-
-    let pc, localStream, remoteNumber, callPath;
-    let isMuted = false;
-
-    // --- Elements ---
-    const menuScreen = document.getElementById("menuScreen");
-    const incomingScreen = document.getElementById("incomingScreen");
-    const callScreen = document.getElementById("callScreen");
-
-    const callNumberInput = document.getElementById("callNumberInput");
-    const callBtn = document.getElementById("callBtn");
-
+    // --- UI Elements ---
+    const statusEl = document.getElementById("status");
+    const homeScreen = document.getElementById("home");
+    const incomingScreen = document.getElementById("incoming");
+    const callScreen = document.getElementById("call");
+    const myNumberEl = document.getElementById("myNumber");
+    const targetNumberEl = document.getElementById("targetNumber");
     const callerNumberEl = document.getElementById("callerNumber");
+    const withNumberEl = document.getElementById("withNumber");
+
+    const callBtn = document.getElementById("callBtn");
     const acceptBtn = document.getElementById("acceptBtn");
     const denyBtn = document.getElementById("denyBtn");
-
-    const remoteNumberEl = document.getElementById("remoteNumber");
     const endBtn = document.getElementById("endBtn");
     const muteBtn = document.getElementById("muteBtn");
 
-    const statusEl = document.getElementById("status");
-    const localAudio = document.getElementById("localAudio");
-    const remoteAudio = document.getElementById("remoteAudio");
+    // --- Vars ---
+    const myNumber = Math.floor(10000 + Math.random() * 90000).toString();
+    myNumberEl.textContent = myNumber;
 
-    document.getElementById("myNumber").innerText = myNumber;
+    let remoteNumber = null;
+    let callPath = null;
+    let peerConnection = null;
+    let localStream = null;
+    let muted = false;
 
-    function show(screen){
-      menuScreen.style.display = (screen==="menu")?"block":"none";
-      incomingScreen.style.display = (screen==="incoming")?"block":"none";
-      callScreen.style.display = (screen==="call")?"block":"none";
+    const servers = { iceServers: [{ urls: ["stun:stun.l.google.com:19302"] }] };
+
+    function show(screen) {
+      [homeScreen, incomingScreen, callScreen].forEach(div => div.style.display = "none");
+      document.getElementById(screen).style.display = "block";
     }
-    function updateStatus(msg){ statusEl.innerText = msg; }
-    show("menu");
 
-    const servers = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+    function updateStatus(msg) {
+      statusEl.textContent = msg;
+    }
 
-    // -----------------------
-    // Start call
-    // -----------------------
-    callBtn.onclick = async () => {
-      const toNumber = callNumberInput.value.trim();
-      if(toNumber.length!==5 || toNumber===myNumber) return alert("Invalid number");
-
-      remoteNumber = toNumber;
-      callPath = `calls/${myNumber}_${remoteNumber}`;
-
-      // Mark call as ringing
-      await set(ref(db, callPath), { from: myNumber, to: remoteNumber, status: "ringing" });
-
-      await setupConnection(false);
-      show("call");
-      updateStatus("Calling...");
-    };
-
-    // -----------------------
-    // Listen for incoming calls
-    // -----------------------
+    // --- Listen for incoming calls directed at me ---
     onValue(ref(db, "calls"), snapshot => {
       const calls = snapshot.val() || {};
-      for(const key in calls){
+      for (const key in calls) {
         const call = calls[key];
-        if(call.to===myNumber && call.status==="ringing"){
+        if (call.to === myNumber && call.status === "ringing") {
           remoteNumber = call.from;
           callPath = `calls/${remoteNumber}_${myNumber}`;
-          callerNumberEl.innerText = remoteNumber;
+          callerNumberEl.textContent = remoteNumber;
           show("incoming");
-          updateStatus("Incoming call");
-          break;
+          updateStatus("Incoming call...");
         }
       }
     });
 
-    // -----------------------
-    // Accept / Deny
-    // -----------------------
+    // --- Call someone ---
+    callBtn.onclick = async () => {
+      remoteNumber = targetNumberEl.value.trim();
+      if (!remoteNumber) return;
+
+      callPath = `calls/${myNumber}_${remoteNumber}`;
+      await setupConnection(false);
+      show("call");
+      withNumberEl.textContent = remoteNumber;
+      updateStatus("Calling...");
+    };
+
+    // --- Accept ---
     acceptBtn.onclick = async () => {
       await update(ref(db, callPath), { status: "in-progress" });
       await setupConnection(true);
       show("call");
-      updateStatus("In Call 🎤");
+      withNumberEl.textContent = remoteNumber;
+      updateStatus("In call 🎤");
     };
 
+    // --- Deny ---
     denyBtn.onclick = async () => {
       await remove(ref(db, callPath));
-      show("menu");
+      show("home");
       updateStatus("Idle");
     };
 
-    // -----------------------
-    // WebRTC Setup
-    // -----------------------
-    async function setupConnection(isAnswer){
-      pc = new RTCPeerConnection(servers);
+    // --- End ---
+    endBtn.onclick = async () => {
+      if (callPath) await remove(ref(db, callPath));
+      if (peerConnection) peerConnection.close();
+      show("home");
+      updateStatus("Idle");
+    };
 
-      // Local audio
+    // --- Mute ---
+    muteBtn.onclick = () => {
+      muted = !muted;
+      localStream.getAudioTracks()[0].enabled = !muted;
+      muteBtn.textContent = muted ? "Unmute" : "Mute";
+    };
+
+    // --- WebRTC Setup ---
+    async function setupConnection(isAnswerer) {
       localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-      localAudio.srcObject = localStream;
+      peerConnection = new RTCPeerConnection(servers);
+      localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
-      // Remote audio
-      pc.ontrack = (event)=>{ remoteAudio.srcObject = event.streams[0]; };
+      // Play remote audio
+      const remoteAudio = document.createElement("audio");
+      remoteAudio.autoplay = true;
+      peerConnection.ontrack = (event) => {
+        remoteAudio.srcObject = event.streams[0];
+        document.body.appendChild(remoteAudio);
+      };
 
-      // ICE
-      pc.onicecandidate = (e)=>{
-        if(e.candidate){
-          push(ref(db, `${callPath}/candidates/${isAnswer?"answer":"offer"}`), e.candidate.toJSON());
+      // ICE candidates
+      peerConnection.onicecandidate = e => {
+        if (e.candidate) {
+          const type = isAnswerer ? "answer" : "offer";
+          set(ref(db, `${callPath}/candidates/${type}/${Date.now()}`), e.candidate.toJSON());
         }
       };
 
-      if(!isAnswer){
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        await set(ref(db, `${callPath}/offer`), offer.toJSON());
-
-        // Wait for answer
-        onValue(ref(db, `${callPath}/answer`), async snap=>{
-          const ans = snap.val();
-          if(ans && !pc.currentRemoteDescription){
-            await pc.setRemoteDescription(new RTCSessionDescription(ans));
+      if (!isAnswerer) {
+        // Caller creates offer
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        await set(ref(db, callPath), {
+          from: myNumber,
+          to: remoteNumber,
+          status: "ringing",
+          offer
+        });
+        onValue(ref(db, `${callPath}/answer`), async snap => {
+          if (snap.exists() && !peerConnection.currentRemoteDescription) {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(snap.val()));
           }
         });
-
       } else {
-        const offerSnap = await get(ref(db, `${callPath}/offer`));
-        const offer = offerSnap.val();
-        await pc.setRemoteDescription(new RTCSessionDescription(offer));
-
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        await set(ref(db, `${callPath}/answer`), answer.toJSON());
+        // Callee sets remote offer, creates answer
+        const callSnap = await (await import("https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js"))
+          .get(ref(db, callPath));
+        const offer = (await import("https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js")).get;
+        // simplified: we rely on onValue listener
+        onValue(ref(db, callPath), async snap => {
+          const call = snap.val();
+          if (call && call.offer && !peerConnection.currentRemoteDescription) {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(call.offer));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            await update(ref(db, callPath), { answer });
+          }
+        });
       }
 
-      // Candidate exchange
-      onChildAdded(ref(db, `${callPath}/candidates/${isAnswer?"offer":"answer"}`), snap=>{
-        pc.addIceCandidate(new RTCIceCandidate(snap.val()));
+      // Listen for ICE candidates from remote
+      onChildAdded(ref(db, `${callPath}/candidates/${isAnswerer ? "offer" : "answer"}`), async snap => {
+        try {
+          await peerConnection.addIceCandidate(new RTCIceCandidate(snap.val()));
+        } catch (err) {
+          console.error("Error adding ICE candidate:", err);
+        }
       });
-
-      remoteNumberEl.innerText = remoteNumber;
     }
 
-    // -----------------------
-    // End / Mute
-    // -----------------------
-    endBtn.onclick = async () => {
-      if(pc) pc.close();
-      if(localStream) localStream.getTracks().forEach(t=>t.stop());
-      if(callPath) await remove(ref(db, callPath));
-      pc=null; callPath=null;
-      show("menu");
-      updateStatus("Idle");
-    };
-
-    muteBtn.onclick = () => {
-      if(!localStream) return;
-      const track = localStream.getAudioTracks()[0];
-      track.enabled = !track.enabled;
-      muteBtn.innerText = track.enabled?"Mute":"Unmute";
-    };
+    // --- Init ---
+    show("home");
+    updateStatus("Idle");
   </script>
 </body>
 </html>
