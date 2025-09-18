@@ -82,8 +82,25 @@
     #status { margin-top: 1rem; font-style: italic; }
 
     .hidden { display: none; }
-    .theme-switch {
+    .theme-switch { margin-top: 1rem; }
+
+    /* Notifications panel */
+    #notifications {
       margin-top: 1rem;
+      text-align: left;
+      font-size: 0.9rem;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+    .note {
+      background: #e5e7eb;
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    body.dark .note {
+      background: #374151;
+      color: #f9fafb;
     }
   </style>
 </head>
@@ -113,6 +130,8 @@
     </div>
 
     <p id="status">Idle</p>
+    <div id="notifications"></div>
+
     <div class="theme-switch">
       <button id="toggleTheme" class="btn-secondary">🌙 Toggle Theme</button>
     </div>
@@ -125,7 +144,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
     import { getDatabase, ref, set, update, remove, onValue } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
-    // --- Firebase Config (yours) ---
     const firebaseConfig = {
       apiKey: "AIzaSyCzfjcgM1LDpdplvnZ70TZMwiCdfJBaCSI",
       authDomain: "voice-call-bef3b.firebaseapp.com",
@@ -139,12 +157,10 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // --- Elements ---
     const myNumberEl = document.getElementById("myNumber");
+    const callerNumberEl = document.getElementById("callerNumber");
     const callInput = document.getElementById("callInput");
     const callBtn = document.getElementById("callBtn");
-    const incoming = document.getElementById("incoming");
-    const callerNumberEl = document.getElementById("callerNumber");
     const acceptBtn = document.getElementById("acceptBtn");
     const denyBtn = document.getElementById("denyBtn");
     const callDiv = document.getElementById("call");
@@ -153,22 +169,19 @@
     const endBtn = document.getElementById("endBtn");
     const statusEl = document.getElementById("status");
     const toggleTheme = document.getElementById("toggleTheme");
-    const remoteAudio = document.getElementById("remoteAudio");
+    const notificationsEl = document.getElementById("notifications");
 
     let pc, localStream, remoteStream;
     let myNumber, remoteNumber, callPath;
 
-    // --- Helpers ---
     function show(id) {
       document.getElementById("menu").classList.add("hidden");
-      incoming.classList.add("hidden");
+      document.getElementById("incoming").classList.add("hidden");
       callDiv.classList.add("hidden");
       document.getElementById(id).classList.remove("hidden");
     }
-
     function updateStatus(msg) { statusEl.textContent = msg; }
 
-    // Stable number per device
     function getMyNumber() {
       let num = localStorage.getItem("myNumber");
       if (!num) {
@@ -178,112 +191,27 @@
       return num;
     }
 
-    // --- Start ---
+    function addNotification(msg) {
+      const note = document.createElement("div");
+      note.className = "note";
+      note.textContent = msg;
+      notificationsEl.prepend(note);
+    }
+
+    // Browser Notification permission
+    if ("Notification" in window) {
+      Notification.requestPermission();
+    }
+    function sendBrowserNotification(msg) {
+      if (Notification.permission === "granted") {
+        new Notification("Voice Call App", { body: msg });
+      }
+    }
+
     myNumber = getMyNumber();
     myNumberEl.textContent = myNumber;
 
-    // Theme toggle
     toggleTheme.onclick = () => document.body.classList.toggle("dark");
-
-    // --- Call setup ---
-    async function setupConnection(isAnswer) {
-      pc = new RTCPeerConnection();
-      remoteStream = new MediaStream();
-      remoteAudio.srcObject = remoteStream;
-
-      try {
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-      } catch (err) {
-        alert("Microphone blocked! Please allow microphone in browser settings.");
-        return;
-      }
-
-      pc.ontrack = (event) => {
-        event.streams[0].getTracks().forEach(track => remoteStream.addTrack(track));
-      };
-
-      pc.onicecandidate = (e) => {
-        if (e.candidate) {
-          const side = isAnswer ? "answer" : "offer";
-          update(ref(db, callPath + "/candidates/" + side + "/" + e.candidate.sdpMid), { candidate: e.candidate.toJSON() });
-        }
-      };
-
-      if (!isAnswer) {
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        await set(ref(db, callPath), { from: myNumber, to: remoteNumber, status: "ringing", offer });
-        onValue(ref(db, callPath + "/answer"), async snap => {
-          if (snap.exists()) {
-            const ans = snap.val();
-            await pc.setRemoteDescription(new RTCSessionDescription(ans));
-            show("call");
-            updateStatus("In Call 🎤");
-          }
-        });
-      } else {
-        onValue(ref(db, callPath + "/offer"), async snap => {
-          if (snap.exists()) {
-            const offer = snap.val();
-            await pc.setRemoteDescription(new RTCSessionDescription(offer));
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            await update(ref(db, callPath), { answer, status: "in-progress" });
-          }
-        });
-      }
-
-      // ICE candidates
-      onValue(ref(db, callPath + "/candidates/offer"), snap => {
-        snap.forEach(s => {
-          pc.addIceCandidate(new RTCIceCandidate(s.val().candidate));
-        });
-      });
-      onValue(ref(db, callPath + "/candidates/answer"), snap => {
-        snap.forEach(s => {
-          pc.addIceCandidate(new RTCIceCandidate(s.val().candidate));
-        });
-      });
-    }
-
-    // --- Buttons ---
-    callBtn.onclick = () => {
-      remoteNumber = callInput.value.trim();
-      if (!remoteNumber) return alert("Enter a number to call");
-      callPath = `calls/${myNumber}_${remoteNumber}`;
-      setupConnection(false);
-      updateStatus("Calling...");
-    };
-
-    acceptBtn.onclick = async () => {
-      await update(ref(db, callPath), { status: "in-progress" });
-      await setupConnection(true);
-      peerNumberEl.textContent = remoteNumber;
-      show("call");
-      updateStatus("In Call 🎤");
-    };
-
-    denyBtn.onclick = async () => {
-      await remove(ref(db, callPath));
-      show("menu");
-      updateStatus("Idle");
-    };
-
-    endBtn.onclick = async () => {
-      if (pc) pc.close();
-      await remove(ref(db, callPath));
-      show("menu");
-      updateStatus("Call Ended");
-    };
-
-    muteBtn.onclick = () => {
-      if (localStream) {
-        const track = localStream.getTracks()[0];
-        track.enabled = !track.enabled;
-        muteBtn.textContent = track.enabled ? "🔇 Mute" : "🔊 Unmute";
-      }
-    };
 
     // --- Incoming call listener ---
     onValue(ref(db, "calls"), snap => {
@@ -296,11 +224,14 @@
           callerNumberEl.textContent = remoteNumber;
           show("incoming");
           updateStatus("Incoming Call...");
+          addNotification(`Incoming call from ${remoteNumber}`);
+          sendBrowserNotification(`Incoming call from ${remoteNumber}`);
         }
-        // auto-deny if caller hangs up
         if (call.to === myNumber && call.status === "ended") {
           show("menu");
           updateStatus("Caller hung up.");
+          addNotification(`Missed call from ${call.from}`);
+          sendBrowserNotification(`Missed call from ${call.from}`);
         }
       }
     });
