@@ -108,13 +108,13 @@
     <!-- Call Screen -->
     <div id="call" class="hidden">
       <p>In call with <b id="peerNumber"></b></p>
-      <button class="btn-secondary" id="muteBtn">🔇 Mute</button>
-      <button class="btn-danger" id="endBtn">🔚 End</button>
+      <button class="btn-secondary" id="muteBtn">Mute</button>
+      <button class="btn-danger" id="endBtn">End</button>
     </div>
 
     <p id="status">Idle</p>
     <div class="theme-switch">
-      <button id="toggleTheme" class="btn-secondary">🌙 Toggle Theme</button>
+      <button id="toggleTheme" class="btn-secondary">Toggle Theme</button>
     </div>
   </div>
 
@@ -219,7 +219,7 @@
             const ans = snap.val();
             await pc.setRemoteDescription(new RTCSessionDescription(ans));
             show("call");
-            updateStatus("In Call 🎤");
+            updateStatus("In Call");
           }
         });
       } else {
@@ -261,7 +261,7 @@
       await setupConnection(true);
       peerNumberEl.textContent = remoteNumber;
       show("call");
-      updateStatus("In Call 🎤");
+      updateStatus("In Call");
     };
 
     denyBtn.onclick = async () => {
@@ -281,7 +281,7 @@
       if (localStream) {
         const track = localStream.getTracks()[0];
         track.enabled = !track.enabled;
-        muteBtn.textContent = track.enabled ? "🔇 Mute" : "🔊 Unmute";
+        muteBtn.textContent = track.enabled ? "Mute" : "Unmute";
       }
     };
 
