@@ -13,18 +13,15 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-messaging.onBackgroundMessage(payload => {
-  self.registration.showNotification(
-    payload.notification?.title || "Incoming Call",
-    {
-      body: payload.notification?.body || "Tap to answer",
-      icon: "/call-app/icons/icon-192.png",
-      data: { url: "/call-app/index.html" }
-    }
-  );
+messaging.onBackgroundMessage((payload) => {
+  self.registration.showNotification(payload.notification?.title || "Incoming Call", {
+    body: payload.notification?.body || "Tap to answer",
+    icon: "/call-app/icons/icon-192.png",
+    data: { url: "/call-app/" }
+  });
 });
 
-self.addEventListener("notificationclick", e => {
-  e.notification.close();
-  e.waitUntil(clients.openWindow(e.notification.data.url));
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(clients.openWindow(event.notification.data.url));
 });
