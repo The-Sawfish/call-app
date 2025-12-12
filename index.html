@@ -98,88 +98,116 @@ button { margin:0.3rem; padding:0.7rem 1.2rem; border:none; border-radius:0.6rem
   <button class="btn-secondary" id="toggleTheme">Toggle Theme</button>
   <audio id="remoteAudio" autoplay></audio>
 </section>
-
 <script type="module">
-let swReg = null;
-let initialized = false;
-
-if ("serviceWorker" in navigator) {
-  swReg = await navigator.serviceWorker.register("/call-app/sw.js", { scope: "/call-app/" });
-}
-
-function isPWA() {
-  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
-}
-
-async function checkMode() {
-  await new Promise(r => setTimeout(r, 50));
-  const overlay = document.getElementById("installOverlay");
+(() => {
+  const installOverlay = document.getElementById("installOverlay");
   const appUI = document.getElementById("appUI");
-
-  if (isPWA()) {
-    overlay.classList.add("hidden");
-    appUI.classList.remove("hidden");
-    if (!initialized) initApp();
-  } else {
-    appUI.classList.add("hidden");
-    overlay.classList.remove("hidden");
-  }
-}
-
-window.addEventListener("load", checkMode);
-window.addEventListener("appinstalled", checkMode);
-document.addEventListener("visibilitychange", () => !document.hidden && checkMode());
-
-async function initApp() {
-  initialized = true;
-
-  const { initializeApp } = await import("https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js");
-  const { getDatabase, ref, set, update, remove, onValue } =
-    await import("https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js");
-  const { getMessaging, getToken } =
-    await import("https://www.gstatic.com/firebasejs/12.2.1/firebase-messaging.js");
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyCzfjcgM1LDpdplvnZ70TZMwiCdfJBaCSI",
-    authDomain: "voice-call-bef3b.firebaseapp.com",
-    databaseURL: "https://voice-call-bef3b-default-rtdb.firebaseio.com",
-    projectId: "voice-call-bef3b",
-    storageBucket: "voice-call-bef3b.firebasestorage.app",
-    messagingSenderId: "280467966695",
-    appId: "1:280467966695:web:1cfdc7f7bcef6a677db042"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-  const messaging = getMessaging(app);
-
-  if (Notification.permission !== "granted") {
-    await Notification.requestPermission();
-  }
-
-  await getToken(messaging, {
-    vapidKey: "BGUWOlVW7JNJ3O29gtajLywP7mNb6qv7eEcJMXcCZj_Vwd_rDURycsaFe_fRYjnKkPomYdv8AUFjSDbIbkOlWvs",
-    serviceWorkerRegistration: swReg
-  });
-
-  const myNumberEl = document.getElementById("myNumber");
-  const callBtn = document.getElementById("callBtn");
-  const callInput = document.getElementById("callInput");
   const statusEl = document.getElementById("status");
-  const toggleTheme = document.getElementById("toggleTheme");
 
-  let myNumber = localStorage.getItem("myNumber") || Math.floor(10000 + Math.random()*90000);
-  localStorage.setItem("myNumber", myNumber);
-  myNumberEl.textContent = myNumber;
+  let initialized = false;
+  let swReg = null;
 
-  toggleTheme.onclick = () => document.body.classList.toggle("dark");
+  function isStandalone() {
+    const mmStandalone = window.matchMedia?.("(display-mode: standalone)")?.matches;
+    const mmFullscreen = window.matchMedia?.("(display-mode: fullscreen)")?.matches;
+    const mmMinimal = window.matchMedia?.("(display-mode: minimal-ui)")?.matches;
+    const iOSStandalone = window.navigator.standalone === true;
+    return !!(mmStandalone || mmFullscreen || mmMinimal || iOSStandalone);
+  }
 
-  callBtn.onclick = () => {
-    statusEl.textContent = "Calling " + callInput.value;
-  };
+  function showInstalledUI() {
+    installOverlay.classList.add("hidden");
+    appUI.classList.remove("hidden");
+  }
 
-  statusEl.textContent = "Ready";
-}
+  function showInstallOverlay() {
+    appUI.classList.add("hidden");
+    installOverlay.classList.remove("hidden");
+  }
+
+  async function registerSW() {
+    if (!("serviceWorker" in navigator)) return null;
+    try {
+      // ✅ correct for https://the-sawfish.github.io/call-app/
+      swReg = await navigator.serviceWorker.register("/call-app/sw.js", { scope: "/call-app/" });
+      console.log("SW registered:", swReg.scope);
+      return swReg;
+    } catch (e) {
+      console.warn("SW register failed:", e);
+      return null; // do NOT crash the module
+    }
+  }
+
+  async function checkModeAndInit() {
+    await new Promise(r => setTimeout(r, 50)); // helps iOS settle
+
+    const standalone = isStandalone();
+    if (statusEl) {
+      statusEl.textContent =
+        (standalone ? "Installed mode ✅" : "Browser mode ❌ (showing install instructions)");
+    }
+
+    if (standalone) {
+      showInstalledUI();
+      if (!initialized) {
+        initialized = true;
+        await registerSW();
+        initCallApp().catch(err => {
+          console.error("initCallApp failed:", err);
+          statusEl.textContent = "Init error ❌ (check console)";
+        });
+      }
+    } else {
+      showInstallOverlay();
+    }
+  }
+
+  window.addEventListener("load", checkModeAndInit);
+  window.addEventListener("appinstalled", checkModeAndInit);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) checkModeAndInit(); });
+
+  async function initCallApp() {
+    // ✅ dynamic imports only
+    const { initializeApp } = await import("https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js");
+    const { getDatabase, ref, set, update, remove, onValue } =
+      await import("https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js");
+    const { getMessaging, getToken } =
+      await import("https://www.gstatic.com/firebasejs/12.2.1/firebase-messaging.js");
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCzfjcgM1LDpdplvnZ70TZMwiCdfJBaCSI",
+      authDomain: "voice-call-bef3b.firebaseapp.com",
+      databaseURL: "https://voice-call-bef3b-default-rtdb.firebaseio.com",
+      projectId: "voice-call-bef3b",
+      storageBucket: "voice-call-bef3b.firebasestorage.app",
+      messagingSenderId: "280467966695",
+      appId: "1:280467966695:web:1cfdc7f7bcef6a677db042"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const messaging = getMessaging(app);
+
+    if ("Notification" in window && Notification.permission !== "granted") {
+      await Notification.requestPermission();
+    }
+
+    try {
+      await getToken(messaging, {
+        vapidKey: "BGUWOlVW7JNJ3O29gtajLywP7mNb6qv7eEcJMXcCZj_Vwd_rDURycsaFe_fRYjnKkPomYdv8AUFjSDbIbkOlWvs",
+        serviceWorkerRegistration: swReg || undefined
+      });
+    } catch (e) {
+      console.warn("getToken failed:", e);
+    }
+
+    // If we reached here, your app JS is running:
+    statusEl.textContent = "Ready ✅";
+
+    // ---- keep your existing call logic below this line ----
+    // (Paste in your existing call logic exactly as you had it.)
+  }
+})();
 </script>
 </body>
 </html>
