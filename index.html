@@ -9,6 +9,8 @@
   <style>
     :root {
       --primary: #4f46e5;
+      --danger: #dc2626;
+      --success: #16a34a;
       --bg-light: #f9fafb;
       --bg-dark: #111827;
       --text-light: #111827;
@@ -20,14 +22,24 @@
     .card { width:100%; max-width:400px; background:white; padding:2rem; border-radius:1.25rem; box-shadow:0 8px 20px rgba(0,0,0,0.2); text-align:center; transition:0.3s; }
     body.dark .card { background:#1f2937; }
     h1 { margin-bottom:1rem; font-size:1.5rem; }
+    input { width:100%; padding:0.6rem; margin:0.5rem 0; border:1px solid #d1d5db; border-radius:0.5rem; font-size:1rem; }
     button { display:inline-block; margin:0.3rem; padding:0.7rem 1.2rem; font-size:1rem; border:none; border-radius:0.6rem; cursor:pointer; transition:0.1s,0.2s; }
+    button:hover { transform: scale(1.05); }
     .btn-primary { background:var(--primary); color:white; }
+    .btn-danger { background:var(--danger); color:white; }
+    .btn-success { background:var(--success); color:white; }
+    .btn-secondary { background:#6b7280; color:white; }
+    #status { margin-top:1rem; font-style:italic; }
+    .hidden { display:none; }
+    .theme-switch { margin-top:1rem; }
     #instructions { font-size:1rem; line-height:1.5; }
   </style>
 </head>
 <body>
   <div class="card" id="container">
     <h1>Voice Call App</h1>
+
+    <!-- Instructions for browser -->
     <div id="instructions" class="hidden">
       <p>📲 To use this app, you need to install it on your device:</p>
       <ol>
@@ -37,6 +49,7 @@
       </ol>
     </div>
 
+    <!-- App Content -->
     <div id="appContent" class="hidden">
       <!-- Home Screen -->
       <p>Your number: <b id="myNumber">...</b></p>
@@ -46,33 +59,46 @@
       <!-- Incoming Call -->
       <div id="incoming" class="hidden">
         <p>Incoming call from <b id="callerNumber"></b></p>
-        <button class="btn-primary" id="acceptBtn">✅ Accept</button>
-        <button class="btn-primary" id="denyBtn">❌ Deny</button>
+        <button class="btn-success" id="acceptBtn">✅ Accept</button>
+        <button class="btn-danger" id="denyBtn">❌ Deny</button>
       </div>
 
       <!-- Call Screen -->
       <div id="call" class="hidden">
         <p>In call with <b id="peerNumber"></b></p>
-        <button class="btn-primary" id="muteBtn">🔇 Mute</button>
-        <button class="btn-primary" id="endBtn">🔚 End</button>
+        <button class="btn-secondary" id="muteBtn">🔇 Mute</button>
+        <button class="btn-danger" id="endBtn">🔚 End</button>
       </div>
 
       <p id="status">Idle</p>
+      <div class="theme-switch">
+        <button id="toggleTheme" class="btn-secondary">🌙 Toggle Theme</button>
+      </div>
+
       <audio id="remoteAudio" autoplay></audio>
     </div>
   </div>
 
   <script type="module">
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    // --- Standalone detection ---
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                         window.navigator.standalone === true;
+
     const instructions = document.getElementById("instructions");
     const appContent = document.getElementById("appContent");
 
     if(!isStandalone){
-      instructions.classList.remove("hidden"); // show instructions
+      // Browser mode → show instructions only
+      instructions.classList.remove("hidden");
+      appContent.classList.add("hidden");
     } else {
-      appContent.classList.remove("hidden"); // show app UI
+      // Installed PWA → show full app
+      instructions.classList.add("hidden");
+      appContent.classList.remove("hidden");
 
-      // --- Firebase + Call Logic ---
+      // -------------------
+      // Firebase + Call Logic
+      // -------------------
       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
       import { getDatabase, ref, set, update, remove, onValue } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
       import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-messaging.js";
@@ -91,7 +117,7 @@
       const db = getDatabase(app);
       const messaging = getMessaging(app);
 
-      // Request notifications
+      // --- Notifications ---
       async function initNotifications(){
         if('Notification' in window && Notification.permission!=="granted"){
           const perm = await Notification.requestPermission();
@@ -119,13 +145,13 @@
       const muteBtn = document.getElementById("muteBtn");
       const endBtn = document.getElementById("endBtn");
       const statusEl = document.getElementById("status");
+      const toggleTheme = document.getElementById("toggleTheme");
       const remoteAudio = document.getElementById("remoteAudio");
 
       let pc, localStream, remoteStream;
       let myNumber, remoteNumber, callPath;
 
       function show(id){
-        document.getElementById("menu")?.classList.add("hidden");
         incoming.classList.add("hidden");
         callDiv.classList.add("hidden");
         document.getElementById(id)?.classList.remove("hidden");
@@ -142,9 +168,13 @@
       myNumber = getMyNumber();
       myNumberEl.textContent = myNumber;
 
-      // --- Call Logic (same as previous full version, including notifications) ---
-      // ... Keep all setupConnection, buttons, incoming call listener, FCM foreground messages ...
-      // You can reuse all the previous code from the full version I gave for `index.html` and just paste it here.
+      toggleTheme.onclick=()=>document.body.classList.toggle("dark");
+
+      // -------------------
+      // Call Logic (use the previous setupConnection, buttons, and Firebase listeners)
+      // You can copy all previous code from the full working version I provided earlier
+      // -------------------
+
     }
   </script>
 </body>
