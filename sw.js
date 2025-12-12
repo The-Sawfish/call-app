@@ -1,8 +1,6 @@
-// Import Firebase scripts
-importScripts('https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js');
-importScripts('https://www.gstatic.com/firebasejs/12.2.1/firebase-messaging.js');
+importScripts("https://www.gstatic.com/firebasejs/12.2.1/firebase-app-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/12.2.1/firebase-messaging-compat.js");
 
-// Initialize Firebase in the Service Worker
 firebase.initializeApp({
   apiKey: "AIzaSyCzfjcgM1LDpdplvnZ70TZMwiCdfJBaCSI",
   authDomain: "voice-call-bef3b.firebaseapp.com",
@@ -15,30 +13,18 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Handle background messages
-messaging.onBackgroundMessage((payload) => {
-  console.log('[sw.js] Received background message ', payload);
-
-  const notificationTitle = payload.notification?.title || 'Incoming Call';
-  const notificationOptions = {
-    body: payload.notification?.body || 'You have a new call',
-    icon: '/call-app/icons/icon-192.png',
-    vibrate: [100, 50, 100],
-    data: { url: '/' } // Optional: click opens the PWA
-  };
-
-  self.registration.showNotification(notificationTitle, notificationOptions);
+messaging.onBackgroundMessage(payload => {
+  self.registration.showNotification(
+    payload.notification?.title || "Incoming Call",
+    {
+      body: payload.notification?.body || "Tap to answer",
+      icon: "/call-app/icons/icon-192.png",
+      data: { url: "/call-app/index.html" }
+    }
+  );
 });
 
-// Optional: Handle notification click
-self.addEventListener('notificationclick', function(event) {
-  event.notification.close();
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
-      for (const client of clientList) {
-        if (client.url === event.notification.data.url && 'focus' in client) return client.focus();
-      }
-      if (clients.openWindow) return clients.openWindow(event.notification.data.url);
-    })
-  );
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  e.waitUntil(clients.openWindow(e.notification.data.url));
 });
