@@ -2,13 +2,13 @@
   "name": "Voice Call App",
   "short_name": "CallApp",
   "description": "Make voice calls directly from your browser.",
-  "start_url": "/call-app/index.html",
+  "start_url": "/call-app/",
   "scope": "/call-app/",
   "display": "standalone",
   "background_color": "#f9fafb",
   "theme_color": "#4f46e5",
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "/call-app/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/call-app/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
   ]
 }
