@@ -36,9 +36,9 @@ body.dark { background:#111827; color:#f9fafb; }
 }
 body.dark .card { background:#1f2937; }
 
-.hidden { display:none; } /* keep for your internal UI sections */
+.hidden { display:none; } /* keep for internal sections */
 
-/* ✅ bulletproof hide */
+/* ✅ bulletproof hide for overlay/app container */
 [hidden] { display: none !important; }
 
 .overlay {
@@ -53,13 +53,50 @@ body.dark .card { background:#1f2937; }
   text-align:center;
   padding:2rem;
 }
+body.dark .overlay {
+  background:rgba(17,24,39,0.95);
+  color:#f9fafb;
+}
 
-input { width:100%; padding:0.6rem; margin:0.5rem 0; border-radius:0.5rem; border:1px solid #d1d5db; }
-button { margin:0.3rem; padding:0.7rem 1.2rem; border:none; border-radius:0.6rem; cursor:pointer; }
+input {
+  width:100%;
+  padding:0.6rem;
+  margin:0.5rem 0;
+  border-radius:0.5rem;
+  border:1px solid #d1d5db;
+  font-size:1rem;
+}
+button {
+  margin:0.3rem;
+  padding:0.7rem 1.2rem;
+  border:none;
+  border-radius:0.6rem;
+  cursor:pointer;
+}
 .btn-primary { background:#4f46e5; color:white; }
 .btn-danger { background:#dc2626; color:white; }
 .btn-success { background:#16a34a; color:white; }
 .btn-secondary { background:#6b7280; color:white; }
+
+/* Contacts list rows */
+#contactsList .row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:0.5rem;
+  padding:0.5rem;
+  border:1px solid #e5e7eb;
+  border-radius:0.75rem;
+  margin:0.35rem 0;
+  background: rgba(255,255,255,0.6);
+}
+body.dark #contactsList .row{
+  border-color:#374151;
+  background: rgba(31,41,55,0.8);
+}
+#contactsList .row button{
+  padding:0.45rem 0.7rem;
+}
 </style>
 </head>
 
@@ -68,42 +105,77 @@ button { margin:0.3rem; padding:0.7rem 1.2rem; border:none; border-radius:0.6rem
 <!-- ✅ START HIDDEN. JS decides. -->
 <div id="installOverlay" class="overlay" hidden>
   <h1>Voice Call App</h1>
-  <p>Install this app to continue:</p>
-  <ol>
+  <p>📲 Install this app to continue:</p>
+  <ol style="text-align:left; max-width:340px;">
     <li>Open browser menu</li>
     <li>Select <b>Add to Home Screen</b></li>
     <li>Open from Home Screen</li>
+    <li>Allow microphone + notifications</li>
   </ol>
 </div>
 
 <!-- ✅ START HIDDEN. JS decides. -->
 <section id="appUI" class="card" hidden>
 
-  <div id="menu">
-    <p>Your number: <b id="myNumber"></b></p>
-    <input id="callInput" placeholder="Enter number to call" />
-    <button class="btn-primary" id="callBtn">📞 Call</button>
+  <!-- Top nav -->
+  <div style="display:flex; gap:0.5rem; justify-content:center; margin-bottom:0.75rem;">
+    <button class="btn-secondary" id="navDialer">Dialer</button>
+    <button class="btn-secondary" id="navContacts">Contacts</button>
   </div>
 
-  <div id="incoming" class="hidden">
-    <p>Incoming call from <b id="callerNumber"></b></p>
-    <button class="btn-success" id="acceptBtn">Accept</button>
-    <button class="btn-danger" id="denyBtn">Deny</button>
+  <!-- DIALER PAGE -->
+  <div id="pageDialer">
+    <div id="menu">
+      <p>Your number: <b id="myNumber">...</b></p>
+      <input id="callInput" placeholder="Enter 5-digit number to call" inputmode="numeric" maxlength="5" />
+      <button class="btn-primary" id="callBtn">📞 Call</button>
+    </div>
+
+    <div id="incoming" class="hidden">
+      <p>Incoming call from <b id="callerNumber"></b></p>
+      <button class="btn-success" id="acceptBtn">Accept</button>
+      <button class="btn-danger" id="denyBtn">Deny</button>
+    </div>
+
+    <div id="call" class="hidden">
+      <p>In call with <b id="peerNumber"></b></p>
+      <button class="btn-secondary" id="muteBtn">Mute</button>
+      <button class="btn-danger" id="endBtn">End</button>
+    </div>
   </div>
 
-  <div id="call" class="hidden">
-    <p>In call with <b id="peerNumber"></b></p>
-    <button class="btn-secondary" id="muteBtn">Mute</button>
-    <button class="btn-danger" id="endBtn">End</button>
+  <!-- CONTACTS PAGE -->
+  <div id="pageContacts" class="hidden" style="text-align:left;">
+    <h3 style="margin:0.25rem 0 0.5rem;">Contacts</h3>
+
+    <label style="font-size:0.9rem;">Name</label>
+    <input id="contactName" placeholder="e.g., Mom" />
+
+    <label style="font-size:0.9rem;">Number (5 digits)</label>
+    <input id="contactNumber" placeholder="e.g., 12345" inputmode="numeric" maxlength="5" />
+
+    <div style="display:flex; gap:0.5rem;">
+      <button class="btn-success" id="addContactBtn" style="flex:1;">Save</button>
+      <button class="btn-secondary" id="clearContactsBtn" style="flex:1;">Clear All</button>
+    </div>
+
+    <div style="margin-top:0.75rem;">
+      <div style="font-size:0.9rem; opacity:0.8; margin-bottom:0.25rem;">Saved</div>
+      <div id="contactsList"></div>
+    </div>
   </div>
 
   <p id="status">Idle</p>
   <button class="btn-secondary" id="toggleTheme">Toggle Theme</button>
+
   <audio id="remoteAudio" autoplay></audio>
 </section>
 
 <script type="module">
 (() => {
+  // ==========================================================
+  // ✅ DO NOT BREAK: exact overlay logic (kept)
+  // ==========================================================
   const installOverlay = document.getElementById("installOverlay");
   const appUI = document.getElementById("appUI");
   const statusEl = document.getElementById("status");
@@ -112,17 +184,10 @@ button { margin:0.3rem; padding:0.7rem 1.2rem; border:none; border-radius:0.6rem
   let swReg = null;
 
   function isStandalone() {
-    // iOS: navigator.standalone
     const iOSStandalone = window.navigator.standalone === true;
-
-    // Modern browsers: display-mode
-    const mql = window.matchMedia?.("(display-mode: standalone)");
-    const standalone = !!mql?.matches;
-
-    // Some environments report minimal-ui/fullscreen
+    const standalone = !!window.matchMedia?.("(display-mode: standalone)")?.matches;
     const minimal = !!window.matchMedia?.("(display-mode: minimal-ui)")?.matches;
     const fullscreen = !!window.matchMedia?.("(display-mode: fullscreen)")?.matches;
-
     return standalone || minimal || fullscreen || iOSStandalone;
   }
 
@@ -149,8 +214,7 @@ button { margin:0.3rem; padding:0.7rem 1.2rem; border:none; border-radius:0.6rem
   }
 
   async function checkModeAndInit() {
-    await new Promise(r => setTimeout(r, 50)); // helps iOS settle after launch
-
+    await new Promise(r => setTimeout(r, 50));
     const standalone = isStandalone();
     if (statusEl) {
       statusEl.textContent = standalone ? "Installed mode ✅" : "Browser mode ❌ (showing install instructions)";
@@ -171,19 +235,20 @@ button { margin:0.3rem; padding:0.7rem 1.2rem; border:none; border-radius:0.6rem
     }
   }
 
-  // ✅ iOS PWA often restores from BFCache; pageshow catches it
   window.addEventListener("load", checkModeAndInit);
   window.addEventListener("pageshow", checkModeAndInit);
   window.addEventListener("appinstalled", checkModeAndInit);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) checkModeAndInit(); });
 
-  // ✅ React to display-mode changes if the browser flips it
   try {
     const mql = window.matchMedia("(display-mode: standalone)");
     mql.addEventListener?.("change", checkModeAndInit);
-    mql.addListener?.(checkModeAndInit); // older Safari
+    mql.addListener?.(checkModeAndInit);
   } catch {}
 
+  // ==========================================================
+  // APP LOGIC (theme + contacts + calls)
+  // ==========================================================
   async function initCallApp() {
     const { initializeApp } = await import("https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js");
     const { getDatabase, ref, set, update, remove, onValue } =
@@ -205,10 +270,75 @@ button { margin:0.3rem; padding:0.7rem 1.2rem; border:none; border-radius:0.6rem
     const db = getDatabase(app);
     const messaging = getMessaging(app);
 
+    // Elements
+    const myNumberEl = document.getElementById("myNumber");
+    const callInput = document.getElementById("callInput");
+    const callBtn = document.getElementById("callBtn");
+
+    const incoming = document.getElementById("incoming");
+    const callerNumberEl = document.getElementById("callerNumber");
+    const acceptBtn = document.getElementById("acceptBtn");
+    const denyBtn = document.getElementById("denyBtn");
+
+    const callDiv = document.getElementById("call");
+    const peerNumberEl = document.getElementById("peerNumber");
+    const muteBtn = document.getElementById("muteBtn");
+    const endBtn = document.getElementById("endBtn");
+
+    const toggleTheme = document.getElementById("toggleTheme");
+    const remoteAudio = document.getElementById("remoteAudio");
+
+    // Pages/nav
+    const pageDialer = document.getElementById("pageDialer");
+    const pageContacts = document.getElementById("pageContacts");
+    const navDialer = document.getElementById("navDialer");
+    const navContacts = document.getElementById("navContacts");
+
+    // Contacts UI
+    const contactName = document.getElementById("contactName");
+    const contactNumber = document.getElementById("contactNumber");
+    const addContactBtn = document.getElementById("addContactBtn");
+    const clearContactsBtn = document.getElementById("clearContactsBtn");
+    const contactsList = document.getElementById("contactsList");
+
+    // Theme (works + persists)
+    const savedTheme = localStorage.getItem("theme");
+    if (savedTheme === "dark") document.body.classList.add("dark");
+    toggleTheme.onclick = () => {
+      document.body.classList.toggle("dark");
+      localStorage.setItem("theme", document.body.classList.contains("dark") ? "dark" : "light");
+    };
+
+    // Page navigation
+    function showPage(which) {
+      if (which === "contacts") {
+        pageDialer.classList.add("hidden");
+        pageContacts.classList.remove("hidden");
+      } else {
+        pageContacts.classList.add("hidden");
+        pageDialer.classList.remove("hidden");
+      }
+    }
+    navDialer.onclick = () => showPage("dialer");
+    navContacts.onclick = () => showPage("contacts");
+    showPage("dialer");
+
+    // My number (always 5 digits, persisted)
+    function getMyNumber() {
+      let num = localStorage.getItem("myNumber");
+      if (!num || !/^\d{5}$/.test(num)) {
+        num = String(Math.floor(10000 + Math.random() * 90000));
+        localStorage.setItem("myNumber", num);
+      }
+      return num;
+    }
+    const myNumber = getMyNumber();
+    myNumberEl.textContent = myNumber;
+
+    // Notifications token
     if ("Notification" in window && Notification.permission !== "granted") {
       await Notification.requestPermission();
     }
-
     try {
       await getToken(messaging, {
         vapidKey: "BGUWOlVW7JNJ3O29gtajLywP7mNb6qv7eEcJMXcCZj_Vwd_rDURycsaFe_fRYjnKkPomYdv8AUFjSDbIbkOlWvs",
@@ -218,11 +348,228 @@ button { margin:0.3rem; padding:0.7rem 1.2rem; border:none; border-radius:0.6rem
       console.warn("getToken failed:", e);
     }
 
-    statusEl.textContent = "Ready ✅";
+    // Contacts (localStorage)
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;" }[m]));
+    }
+    function loadContacts() {
+      try { return JSON.parse(localStorage.getItem("contacts") || "[]"); }
+      catch { return []; }
+    }
+    function saveContacts(list) {
+      localStorage.setItem("contacts", JSON.stringify(list));
+    }
+    function renderContacts() {
+      const list = loadContacts();
+      contactsList.innerHTML = "";
+      if (!list.length) {
+        contactsList.innerHTML = `<div style="opacity:0.7;">No contacts saved yet.</div>`;
+        return;
+      }
+      for (const c of list) {
+        const row = document.createElement("div");
+        row.className = "row";
 
-    // ---- paste your full call logic below if needed ----
+        const left = document.createElement("div");
+        left.innerHTML = `<div style="font-weight:600;">${escapeHtml(c.name)}</div>
+                          <div style="opacity:0.8;">${escapeHtml(c.number)}</div>`;
+
+        const right = document.createElement("div");
+        right.style.display = "flex";
+        right.style.gap = "0.35rem";
+
+        const useBtn = document.createElement("button");
+        useBtn.className = "btn-primary";
+        useBtn.textContent = "Use";
+        useBtn.onclick = () => {
+          callInput.value = c.number;
+          showPage("dialer");
+        };
+
+        const delBtn = document.createElement("button");
+        delBtn.className = "btn-danger";
+        delBtn.textContent = "Del";
+        delBtn.onclick = () => {
+          const next = loadContacts().filter(x => x.id !== c.id);
+          saveContacts(next);
+          renderContacts();
+        };
+
+        right.appendChild(useBtn);
+        right.appendChild(delBtn);
+
+        row.appendChild(left);
+        row.appendChild(right);
+        contactsList.appendChild(row);
+      }
+    }
+
+    addContactBtn.onclick = () => {
+      const name = (contactName.value || "").trim();
+      const number = (contactNumber.value || "").trim();
+
+      if (!name) return alert("Enter a name");
+      if (!/^\d{5}$/.test(number)) return alert("Enter a 5 digit number");
+
+      const list = loadContacts();
+      const existing = list.find(x => x.number === number);
+
+      if (existing) {
+        existing.name = name;
+        saveContacts(list);
+      } else {
+        list.push({
+          id: crypto.randomUUID?.() || String(Date.now()),
+          name,
+          number
+        });
+        saveContacts(list);
+      }
+
+      contactName.value = "";
+      contactNumber.value = "";
+      renderContacts();
+    };
+
+    clearContactsBtn.onclick = () => {
+      if (!confirm("Clear all contacts?")) return;
+      saveContacts([]);
+      renderContacts();
+    };
+
+    renderContacts();
+
+    // Call UI helpers
+    function show(id) {
+      document.getElementById("menu")?.classList.add("hidden");
+      incoming.classList.add("hidden");
+      callDiv.classList.add("hidden");
+      document.getElementById(id)?.classList.remove("hidden");
+    }
+    function updateStatus(msg) { statusEl.textContent = msg; }
+
+    let pc, localStream, remoteStream;
+    let remoteNumber = null;
+    let callPath = null;
+
+    async function setupConnection(isAnswer) {
+      pc = new RTCPeerConnection();
+      remoteStream = new MediaStream();
+      remoteAudio.srcObject = remoteStream;
+
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+      } catch (e) {
+        alert("Microphone blocked!");
+        return;
+      }
+
+      pc.ontrack = e => e.streams[0].getTracks().forEach(track => remoteStream.addTrack(track));
+
+      pc.onicecandidate = e => {
+        if (e.candidate) {
+          const side = isAnswer ? "answer" : "offer";
+          update(ref(db, callPath + "/candidates/" + side + "/" + e.candidate.sdpMid), {
+            candidate: e.candidate.toJSON()
+          });
+        }
+      };
+
+      if (!isAnswer) {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await set(ref(db, callPath), { from: myNumber, to: remoteNumber, status: "ringing", offer });
+
+        onValue(ref(db, callPath + "/answer"), async snap => {
+          if (snap.exists()) {
+            await pc.setRemoteDescription(new RTCSessionDescription(snap.val()));
+            peerNumberEl.textContent = remoteNumber;
+            show("call");
+            updateStatus("In Call 🎤");
+          }
+        });
+      } else {
+        onValue(ref(db, callPath + "/offer"), async snap => {
+          if (snap.exists()) {
+            await pc.setRemoteDescription(new RTCSessionDescription(snap.val()));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            await update(ref(db, callPath), { answer, status: "in-progress" });
+          }
+        });
+      }
+
+      onValue(ref(db, callPath + "/candidates/offer"), snap =>
+        snap.forEach(s => pc.addIceCandidate(new RTCIceCandidate(s.val().candidate)))
+      );
+      onValue(ref(db, callPath + "/candidates/answer"), snap =>
+        snap.forEach(s => pc.addIceCandidate(new RTCIceCandidate(s.val().candidate)))
+      );
+    }
+
+    callBtn.onclick = () => {
+      remoteNumber = callInput.value.trim();
+      if (!/^\d{5}$/.test(remoteNumber)) return alert("Enter a 5 digit number");
+      if (remoteNumber === myNumber) return alert("You can't call yourself 🙂");
+
+      callPath = `calls/${myNumber}_${remoteNumber}`;
+      setupConnection(false);
+      peerNumberEl.textContent = remoteNumber;
+      updateStatus("Calling...");
+    };
+
+    acceptBtn.onclick = async () => {
+      await update(ref(db, callPath), { status: "in-progress" });
+      await setupConnection(true);
+      peerNumberEl.textContent = remoteNumber;
+      show("call");
+      updateStatus("In Call 🎤");
+    };
+
+    denyBtn.onclick = async () => {
+      await remove(ref(db, callPath));
+      show("menu");
+      updateStatus("Idle");
+    };
+
+    endBtn.onclick = async () => {
+      if (pc) pc.close();
+      await remove(ref(db, callPath));
+      show("menu");
+      updateStatus("Call Ended");
+    };
+
+    muteBtn.onclick = () => {
+      if (localStream) {
+        const track = localStream.getTracks()[0];
+        track.enabled = !track.enabled;
+        muteBtn.textContent = track.enabled ? "Mute" : "Unmute";
+      }
+    };
+
+    // Incoming call listener
+    onValue(ref(db, "calls"), snap => {
+      const calls = snap.val() || {};
+      for (const key in calls) {
+        const call = calls[key];
+
+        if (call.to === myNumber && call.status === "ringing") {
+          remoteNumber = call.from;
+          callPath = `calls/${remoteNumber}_${myNumber}`;
+          callerNumberEl.textContent = remoteNumber;
+          show("incoming");
+          updateStatus("Incoming Call...");
+        }
+      }
+    });
+
+    // Start on menu
+    show("menu");
+    updateStatus("Ready ✅");
   }
 })();
 </script>
+
 </body>
 </html>
