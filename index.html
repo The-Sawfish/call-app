@@ -1,142 +1,131 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="loading">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Voice Call App</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#4f46e5">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar" content="#4f46e5">
+
   <style>
-    :root {
-      --primary: #4f46e5;
-      --danger: #dc2626;
-      --success: #16a34a;
-      --bg-light: #f9fafb;
-      --bg-dark: #111827;
-      --text-light: #111827;
-      --text-dark: #f9fafb;
-    }
-
-    body { margin:0; font-family:system-ui,sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; background:var(--bg-light); color:var(--text-light); transition:0.3s; }
-    body.dark { background:var(--bg-dark); color:var(--text-dark); }
-
-    .card { width:100%; max-width:400px; background:white; padding:2rem; border-radius:1.25rem; box-shadow:0 8px 20px rgba(0,0,0,0.2); text-align:center; transition:0.3s; }
-    body.dark .card { background:#1f2937; }
-
-    h1 { margin-bottom:1rem; font-size:1.5rem; }
-
-    input { width:100%; padding:0.6rem; margin:0.5rem 0; border:1px solid #d1d5db; border-radius:0.5rem; font-size:1rem; }
-
-    button { display:inline-block; margin:0.3rem; padding:0.7rem 1.2rem; font-size:1rem; border:none; border-radius:0.6rem; cursor:pointer; transition:0.1s,0.2s; }
-    button:hover { transform: scale(1.05); }
-
-    .btn-primary { background:var(--primary); color:white; }
-    .btn-danger { background:var(--danger); color:white; }
-    .btn-success { background:var(--success); color:white; }
-    .btn-secondary { background:#6b7280; color:white; }
-
-    #status { margin-top:1rem; font-style:italic; }
+    body { margin:0; font-family:system-ui,sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; background:#f9fafb; color:#111827; transition:0.3s; }
+    body.dark { background:#111827; color:#f9fafb; }
 
     .hidden { display:none; }
-    .theme-switch { margin-top:1rem; }
+    .visible { display:block; }
 
-    #instructions { font-size:1rem; line-height:1.5; text-align:left; }
+    .card { width:100%; max-width:400px; padding:2rem; border-radius:1.25rem; background:white; box-shadow:0 8px 20px rgba(0,0,0,0.2); text-align:center; transition:0.3s; }
+    body.dark .card { background:#1f2937; }
+
+    h1, h2, h3, h4 { margin:0.5rem 0; }
+    input { width:100%; padding:0.6rem; margin:0.5rem 0; border-radius:0.5rem; border:1px solid #d1d5db; font-size:1rem; }
+    button { display:inline-block; margin:0.3rem; padding:0.7rem 1.2rem; border:none; border-radius:0.6rem; cursor:pointer; transition:0.1s; }
+    button:hover { transform: scale(1.05); }
+    .btn-primary { background:#4f46e5; color:white; }
+    .btn-danger { background:#dc2626; color:white; }
+    .btn-success { background:#16a34a; color:white; }
+    .btn-secondary { background:#6b7280; color:white; }
+    #status { margin-top:1rem; font-style:italic; }
   </style>
 </head>
 <body>
-  <div class="card">
+
+  <!-- ==========================================================
+       INSTALL SCREEN
+  =========================================================== -->
+  <section data-screen="install" class="visible card">
     <h1>Voice Call App</h1>
+    <p>📲 To use this app, you must install it on your Home Screen:</p>
+    <ol>
+      <li>Tap your browser menu → "Add to Home Screen"</li>
+      <li>Open the app from your Home Screen</li>
+      <li>Allow microphone and notifications when prompted</li>
+    </ol>
+  </section>
 
-    <!-- Instructions for browser -->
-    <div id="instructions" class="hidden">
-      <p>📲 To use this app, you need to install it on your device:</p>
-      <ol>
-        <li>Tap your browser menu (⋮) → "Add to Home Screen"</li>
-        <li>Open the app from your Home Screen</li>
-        <li>Allow microphone and notifications when prompted</li>
-      </ol>
+  <!-- ==========================================================
+       FULL APP SCREEN
+  =========================================================== -->
+  <section data-screen="app" class="card hidden">
+
+    <!-- Home Screen -->
+    <div id="menu">
+      <p>Your number: <b id="myNumber">...</b></p>
+      <input id="callInput" placeholder="Enter number to call" />
+      <button class="btn-primary" id="callBtn">📞 Call</button>
     </div>
 
-    <!-- App content -->
-    <div id="appContent" class="hidden">
-      <!-- Home Screen -->
-      <div id="menu">
-        <p>Your number: <b id="myNumber">...</b></p>
-        <input id="callInput" placeholder="Enter number to call" />
-        <button class="btn-primary" id="callBtn">📞 Call</button>
-      </div>
-
-      <!-- Incoming Call -->
-      <div id="incoming" class="hidden">
-        <p>Incoming call from <b id="callerNumber"></b></p>
-        <button class="btn-success" id="acceptBtn">✅ Accept</button>
-        <button class="btn-danger" id="denyBtn">❌ Deny</button>
-      </div>
-
-      <!-- Call Screen -->
-      <div id="call" class="hidden">
-        <p>In call with <b id="peerNumber"></b></p>
-        <button class="btn-secondary" id="muteBtn">🔇 Mute</button>
-        <button class="btn-danger" id="endBtn">🔚 End</button>
-      </div>
-
-      <p id="status">Idle</p>
-      <div class="theme-switch">
-        <button id="toggleTheme" class="btn-secondary">🌙 Toggle Theme</button>
-      </div>
-
-      <audio id="remoteAudio" autoplay></audio>
+    <!-- Incoming Call -->
+    <div id="incoming" class="hidden">
+      <p>Incoming call from <b id="callerNumber"></b></p>
+      <button class="btn-success" id="acceptBtn">✅ Accept</button>
+      <button class="btn-danger" id="denyBtn">❌ Deny</button>
     </div>
-  </div>
 
+    <!-- Call Screen -->
+    <div id="call" class="hidden">
+      <p>In call with <b id="peerNumber"></b></p>
+      <button class="btn-secondary" id="muteBtn">🔇 Mute</button>
+      <button class="btn-danger" id="endBtn">🔚 End</button>
+    </div>
+
+    <p id="status">Idle</p>
+    <button id="toggleTheme" class="btn-secondary">🌙 Toggle Theme</button>
+
+    <audio id="remoteAudio" autoplay></audio>
+  </section>
+
+  <!-- ==========================================================
+       SCRIPT
+  =========================================================== -->
   <script type="module">
-    // --------------------------
-    // Standalone detection
-    // --------------------------
-    function checkStandalone() {
-      const instructions = document.getElementById("instructions");
-      const appContent = document.getElementById("appContent");
 
-      requestAnimationFrame(() => {
-        const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
-                             window.navigator.standalone === true;
+    // ==============================
+    // PWA / Install Detection
+    // ==============================
+    const Screens = {
+      install: document.querySelector("[data-screen='install']"),
+      app: document.querySelector("[data-screen='app']")
+    };
 
-        if(!isStandalone){
-          instructions.classList.remove("hidden");
-          appContent.classList.add("hidden");
-        } else {
-          instructions.classList.add("hidden");
-          appContent.classList.remove("hidden");
-          initApp();
-        }
-      });
+    function isPWAInstalled() {
+      return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
     }
-    window.addEventListener('load', checkStandalone);
 
-    // Optional install prompt
-    let deferredPrompt;
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      const instructions = document.getElementById("instructions");
-      instructions.classList.remove("hidden");
-      instructions.addEventListener('click', async () => {
-        deferredPrompt.prompt();
-        await deferredPrompt.userChoice;
-        deferredPrompt = null;
-        instructions.classList.add("hidden");
-      });
-    });
+    function updateScreenState() {
+      setTimeout(() => { // delay ensures correct detection on iOS/Android
+        if(isPWAInstalled()) {
+          Screens.install.classList.remove('visible');
+          Screens.install.classList.add('hidden');
+          Screens.app.classList.remove('hidden');
+          Screens.app.classList.add('visible');
+          initCallApp();
+        } else {
+          Screens.install.classList.remove('hidden');
+          Screens.install.classList.add('visible');
+          Screens.app.classList.remove('visible');
+          Screens.app.classList.add('hidden');
+        }
+      }, 200);
+    }
 
-    // --------------------------
-    // Full App Logic
-    // --------------------------
-    function initApp() {
+    window.addEventListener('load', updateScreenState);
+    document.addEventListener('visibilitychange', () => { if(!document.hidden) updateScreenState(); });
+
+    // ==============================
+    // CALL APP LOGIC
+    // ==============================
+    async function initCallApp() {
+      // ---------------------------
+      // Firebase + Messaging
+      // ---------------------------
       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
       import { getDatabase, ref, set, update, remove, onValue } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
       import { getMessaging, getToken } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-messaging.js";
 
-      // Firebase config
       const firebaseConfig = {
         apiKey: "AIzaSyCzfjcgM1LDpdplvnZ70TZMwiCdfJBaCSI",
         authDomain: "voice-call-bef3b.firebaseapp.com",
@@ -152,21 +141,19 @@
       const messaging = getMessaging(app);
 
       // Request notifications
-      async function initNotifications(){
-        if('Notification' in window && Notification.permission!=="granted"){
-          const perm = await Notification.requestPermission();
-          if(perm!=="granted"){ console.log("Notifications denied"); return; }
-        }
-        try{
-          const token = await getToken(messaging,{
-            vapidKey:"BGUWOlVW7JNJ3O29gtajLywP7mNb6qv7eEcJMXcCZj_Vwd_rDURycsaFe_fRYjnKkPomYdv8AUFjSDbIbkOlWvs"
-          });
-          console.log("FCM Token:",token);
-        } catch(e){ console.error(e); }
+      if('Notification' in window && Notification.permission!=="granted"){
+        await Notification.requestPermission();
       }
-      initNotifications();
+      try {
+        const token = await getToken(messaging, {
+          vapidKey:"BGUWOlVW7JNJ3O29gtajLywP7mNb6qv7eEcJMXcCZj_Vwd_rDURycsaFe_fRYjnKkPomYdv8AUFjSDbIbkOlWvs"
+        });
+        console.log("FCM Token:", token);
+      } catch(e){ console.error(e); }
 
-      // --- Elements ---
+      // ---------------------------
+      // Elements
+      // ---------------------------
       const myNumberEl = document.getElementById("myNumber");
       const callInput = document.getElementById("callInput");
       const callBtn = document.getElementById("callBtn");
@@ -185,7 +172,9 @@
       let pc, localStream, remoteStream;
       let myNumber, remoteNumber, callPath;
 
-      // --- Helpers ---
+      // ---------------------------
+      // Helpers
+      // ---------------------------
       function show(id){
         document.getElementById("menu")?.classList.add("hidden");
         incoming.classList.add("hidden");
@@ -206,11 +195,115 @@
 
       toggleTheme.onclick=()=>document.body.classList.toggle("dark");
 
-      // --------------------------
+      // ---------------------------
       // Call setup, buttons, Firebase listeners
-      // Copy your previous setupConnection and button logic here
-      // --------------------------
+      // ---------------------------
+      async function setupConnection(isAnswer){
+        pc = new RTCPeerConnection();
+        remoteStream = new MediaStream();
+        remoteAudio.srcObject = remoteStream;
+
+        try {
+          localStream = await navigator.mediaDevices.getUserMedia({ audio:true });
+          localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+        } catch(e){ alert("Microphone blocked!"); return; }
+
+        pc.ontrack = e => e.streams[0].getTracks().forEach(track => remoteStream.addTrack(track));
+
+        pc.onicecandidate = e => {
+          if(e.candidate){
+            const side = isAnswer ? "answer" : "offer";
+            update(ref(db, callPath+"/candidates/"+side+"/"+e.candidate.sdpMid), { candidate: e.candidate.toJSON() });
+          }
+        };
+
+        if(!isAnswer){
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          await set(ref(db, callPath), { from: myNumber, to: remoteNumber, status: "ringing", offer });
+          onValue(ref(db, callPath+"/answer"), async snap => {
+            if(snap.exists()){
+              await pc.setRemoteDescription(new RTCSessionDescription(snap.val()));
+              show("call");
+              updateStatus("In Call 🎤");
+            }
+          });
+        } else {
+          onValue(ref(db, callPath+"/offer"), async snap=>{
+            if(snap.exists()){
+              await pc.setRemoteDescription(new RTCSessionDescription(snap.val()));
+              const answer = await pc.createAnswer();
+              await pc.setLocalDescription(answer);
+              await update(ref(db, callPath), { answer, status:"in-progress" });
+            }
+          });
+        }
+
+        onValue(ref(db, callPath+"/candidates/offer"), snap=>{
+          snap.forEach(s => pc.addIceCandidate(new RTCIceCandidate(s.val().candidate)));
+        });
+        onValue(ref(db, callPath+"/candidates/answer"), snap=>{
+          snap.forEach(s => pc.addIceCandidate(new RTCIceCandidate(s.val().candidate)));
+        });
+      }
+
+      callBtn.onclick = () => {
+        remoteNumber = callInput.value.trim();
+        if(!remoteNumber) return alert("Enter a number to call");
+        callPath = `calls/${myNumber}_${remoteNumber}`;
+        setupConnection(false);
+        updateStatus("Calling...");
+      };
+
+      acceptBtn.onclick = async () => {
+        await update(ref(db, callPath), { status:"in-progress" });
+        await setupConnection(true);
+        peerNumberEl.textContent = remoteNumber;
+        show("call");
+        updateStatus("In Call 🎤");
+      };
+
+      denyBtn.onclick = async () => {
+        await remove(ref(db, callPath));
+        show("menu");
+        updateStatus("Idle");
+      };
+
+      endBtn.onclick = async () => {
+        if(pc) pc.close();
+        await remove(ref(db, callPath));
+        show("menu");
+        updateStatus("Call Ended");
+      };
+
+      muteBtn.onclick = () => {
+        if(localStream){
+          const track = localStream.getTracks()[0];
+          track.enabled = !track.enabled;
+          muteBtn.textContent = track.enabled ? "🔇 Mute" : "🔊 Unmute";
+        }
+      };
+
+      // Incoming call listener
+      onValue(ref(db,"calls"), snap=>{
+        const calls = snap.val()||{};
+        for(const key in calls){
+          const call = calls[key];
+          if(call.to===myNumber && call.status==="ringing"){
+            remoteNumber = call.from;
+            callPath = `calls/${remoteNumber}_${myNumber}`;
+            callerNumberEl.textContent = remoteNumber;
+            show("incoming");
+            updateStatus("Incoming Call...");
+          }
+          if(call.to===myNumber && call.status==="ended"){
+            show("menu");
+            updateStatus("Caller hung up.");
+          }
+        }
+      });
     }
+
   </script>
 </body>
 </html>
