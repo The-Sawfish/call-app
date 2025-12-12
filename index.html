@@ -14,13 +14,14 @@
   body { margin:0; font-family:system-ui,sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; background:#f9fafb; color:#111827; transition:0.3s; }
   body.dark { background:#111827; color:#f9fafb; }
 
-  .hidden { display:none; }
-  .visible { display:block; }
-
   .card { width:100%; max-width:400px; padding:2rem; border-radius:1.25rem; background:white; box-shadow:0 8px 20px rgba(0,0,0,0.2); text-align:center; transition:0.3s; }
   body.dark .card { background:#1f2937; }
 
-  h1, h2, h3, h4 { margin:0.5rem 0; }
+  .hidden { display:none; }
+  .overlay { position:fixed; inset:0; background:rgba(249,250,251,0.95); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:9999; text-align:center; padding:2rem; }
+  body.dark .overlay { background:rgba(17,24,39,0.95); color:#f9fafb; }
+
+  h1,h2,h3,h4 { margin:0.5rem 0; }
   input { width:100%; padding:0.6rem; margin:0.5rem 0; border-radius:0.5rem; border:1px solid #d1d5db; font-size:1rem; }
   button { display:inline-block; margin:0.3rem; padding:0.7rem 1.2rem; border:none; border-radius:0.6rem; cursor:pointer; transition:0.1s; }
   button:hover { transform: scale(1.05); }
@@ -35,9 +36,9 @@
 <body>
 
 <!-- ==========================================================
-     INSTALL SCREEN
+     INSTALL OVERLAY (shown only if not installed)
 =========================================================== -->
-<section data-screen="install" class="visible card">
+<div id="installOverlay" class="overlay">
   <h1>Voice Call App</h1>
   <p>📲 To use this app, install it on your Home Screen:</p>
   <ol>
@@ -45,13 +46,12 @@
     <li>Open the app from your Home Screen</li>
     <li>Allow microphone and notifications</li>
   </ol>
-</section>
+</div>
 
 <!-- ==========================================================
-     FULL APP SCREEN
+     FULL APP UI (always in DOM)
 =========================================================== -->
-<section data-screen="app" class="card hidden">
-
+<section id="appUI" class="card">
   <!-- Home Screen -->
   <div id="menu">
     <p>Your number: <b id="myNumber">...</b></p>
@@ -82,40 +82,28 @@
 <script type="module">
 
 // ==============================
-// PWA / Install Detection
+// PWA detection and overlay
 // ==============================
-const Screens = {
-  install: document.querySelector("[data-screen='install']"),
-  app: document.querySelector("[data-screen='app']")
-};
+const installOverlay = document.getElementById('installOverlay');
+const appUI = document.getElementById('appUI');
 
 function isPWAInstalled() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
 
-function updateScreenState() {
-  // delay ensures correct detection on iOS/Android
+function checkPWA() {
   setTimeout(() => {
-    const standalone = isPWAInstalled();
-
-    if(standalone){
-      Screens.install.classList.add('hidden');
-      Screens.install.classList.remove('visible');
-      Screens.app.classList.add('visible');
-      Screens.app.classList.remove('hidden');
-
-      if(typeof initCallApp==="function") requestAnimationFrame(()=>initCallApp());
+    if(isPWAInstalled()){
+      installOverlay.classList.add('hidden'); // hide instructions
+      initCallApp(); // only run call logic after PWA detected
     } else {
-      Screens.install.classList.add('visible');
-      Screens.install.classList.remove('hidden');
-      Screens.app.classList.add('hidden');
-      Screens.app.classList.remove('visible');
+      installOverlay.classList.remove('hidden'); // show instructions
     }
   }, 300);
 }
 
-window.addEventListener('load', updateScreenState);
-document.addEventListener('visibilitychange', ()=>{if(!document.hidden) updateScreenState();});
+window.addEventListener('load', checkPWA);
+document.addEventListener('visibilitychange', ()=>{if(!document.hidden) checkPWA();});
 
 // ==============================
 // CALL APP LOGIC
