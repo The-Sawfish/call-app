@@ -52,6 +52,7 @@
      FULL APP UI (always in DOM)
 =========================================================== -->
 <section id="appUI" class="card">
+
   <!-- Home Screen -->
   <div id="menu">
     <p>Your number: <b id="myNumber">...</b></p>
@@ -82,10 +83,9 @@
 <script type="module">
 
 // ==============================
-// PWA detection and overlay
+// PWA detection & overlay
 // ==============================
 const installOverlay = document.getElementById('installOverlay');
-const appUI = document.getElementById('appUI');
 
 function isPWAInstalled() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
@@ -94,10 +94,10 @@ function isPWAInstalled() {
 function checkPWA() {
   setTimeout(() => {
     if(isPWAInstalled()){
-      installOverlay.classList.add('hidden'); // hide instructions
-      initCallApp(); // only run call logic after PWA detected
+      installOverlay.classList.add('hidden');
+      initCallApp(); // initialize Firebase + WebRTC only after PWA detected
     } else {
-      installOverlay.classList.remove('hidden'); // show instructions
+      installOverlay.classList.remove('hidden');
     }
   }, 300);
 }
@@ -282,6 +282,5 @@ async function initCallApp(){
 }
 
 </script>
-
 </body>
 </html>
