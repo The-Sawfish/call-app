@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Voice Call App</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#4f46e5">
-  <title>Voice Call App</title>
   <style>
     :root {
       --primary: #4f46e5;
@@ -82,10 +82,15 @@
     .btn-secondary { background: #6b7280; color: white; }
 
     #status { margin-top: 1rem; font-style: italic; }
-
     .hidden { display: none; }
-    .theme-switch {
+
+    .theme-switch { margin-top: 1rem; }
+
+    #installPrompt {
       margin-top: 1rem;
+      font-size: 0.9rem;
+      color: var(--primary);
+      cursor: pointer;
     }
   </style>
 </head>
@@ -115,8 +120,13 @@
     </div>
 
     <p id="status">Idle</p>
+
     <div class="theme-switch">
       <button id="toggleTheme" class="btn-secondary">🌙 Toggle Theme</button>
+    </div>
+
+    <div id="installPrompt" class="hidden">
+      📲 Tap here or your browser's menu → "Add to Home Screen"
     </div>
   </div>
 
@@ -127,7 +137,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
     import { getDatabase, ref, set, update, remove, onValue } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 
-    // --- Firebase Config (yours) ---
+    // --- Firebase Config ---
     const firebaseConfig = {
       apiKey: "AIzaSyCzfjcgM1LDpdplvnZ70TZMwiCdfJBaCSI",
       authDomain: "voice-call-bef3b.firebaseapp.com",
@@ -156,6 +166,7 @@
     const statusEl = document.getElementById("status");
     const toggleTheme = document.getElementById("toggleTheme");
     const remoteAudio = document.getElementById("remoteAudio");
+    const installPrompt = document.getElementById("installPrompt");
 
     let pc, localStream, remoteStream;
     let myNumber, remoteNumber, callPath;
@@ -238,14 +249,10 @@
 
       // ICE candidates
       onValue(ref(db, callPath + "/candidates/offer"), snap => {
-        snap.forEach(s => {
-          pc.addIceCandidate(new RTCIceCandidate(s.val().candidate));
-        });
+        snap.forEach(s => { pc.addIceCandidate(new RTCIceCandidate(s.val().candidate)); });
       });
       onValue(ref(db, callPath + "/candidates/answer"), snap => {
-        snap.forEach(s => {
-          pc.addIceCandidate(new RTCIceCandidate(s.val().candidate));
-        });
+        snap.forEach(s => { pc.addIceCandidate(new RTCIceCandidate(s.val().candidate)); });
       });
     }
 
@@ -299,37 +306,39 @@
           show("incoming");
           updateStatus("Incoming Call...");
         }
-        // auto-deny if caller hangs up
         if (call.to === myNumber && call.status === "ended") {
           show("menu");
           updateStatus("Caller hung up.");
         }
       }
     });
+
+    // --- PWA Add to Home Screen ---
+    let deferredPrompt;
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installPrompt.classList.remove("hidden");
+    });
+
+    installPrompt.onclick = async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === "accepted") console.log("User added to home screen");
+        deferredPrompt = null;
+        installPrompt.classList.add("hidden");
+      }
+    };
+
+    // --- Service Worker Registration ---
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/call-app/sw.js")
+          .then(() => console.log("Service Worker registered"))
+          .catch((err) => console.error("SW registration failed:", err));
+      });
+    }
   </script>
-
-
-  <script async="async" data-cfasync="false" src="//pl27673631.revenuecpmgate.com/d4340154bc73718f92bac0614d8b370f/invoke.js"></script>
-<div id="container-d4340154bc73718f92bac0614d8b370f"></div>
-  <script async="async" data-cfasync="false" src="//pl27673631.revenuecpmgate.com/d4340154bc73718f92bac0614d8b370f/invoke.js"></script>
-<div id="container-d4340154bc73718f92bac0614d8b370f"></div>
-  <script async="async" data-cfasync="false" src="//pl27673631.revenuecpmgate.com/d4340154bc73718f92bac0614d8b370f/invoke.js"></script>
-<div id="container-d4340154bc73718f92bac0614d8b370f"></div>
-  <script async="async" data-cfasync="false" src="//pl27673631.revenuecpmgate.com/d4340154bc73718f92bac0614d8b370f/invoke.js"></script>
-<div id="container-d4340154bc73718f92bac0614d8b370f"></div>
-  <script async="async" data-cfasync="false" src="//pl27673631.revenuecpmgate.com/d4340154bc73718f92bac0614d8b370f/invoke.js"></script>
-<div id="container-d4340154bc73718f92bac0614d8b370f"></div>
-  <script async="async" data-cfasync="false" src="//pl27673631.revenuecpmgate.com/d4340154bc73718f92bac0614d8b370f/invoke.js"></script>
-<div id="container-d4340154bc73718f92bac0614d8b370f"></div>
-  <script async="async" data-cfasync="false" src="//pl27673631.revenuecpmgate.com/d4340154bc73718f92bac0614d8b370f/invoke.js"></script>
-<div id="container-d4340154bc73718f92bac0614d8b370f"></div>
-  <script async="async" data-cfasync="false" src="//pl27673631.revenuecpmgate.com/d4340154bc73718f92bac0614d8b370f/invoke.js"></script>
-<div id="container-d4340154bc73718f92bac0614d8b370f"></div>
-  <script async="async" data-cfasync="false" src="//pl27673631.revenuecpmgate.com/d4340154bc73718f92bac0614d8b370f/invoke.js"></script>
-<div id="container-d4340154bc73718f92bac0614d8b370f"></div>
-  <script async="async" data-cfasync="false" src="//pl27673631.revenuecpmgate.com/d4340154bc73718f92bac0614d8b370f/invoke.js"></script>
-<div id="container-d4340154bc73718f92bac0614d8b370f"></div>
-  
 </body>
 </html>
-
