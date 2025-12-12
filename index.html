@@ -1,117 +1,143 @@
 <!DOCTYPE html>
-<html lang="en" class="loading">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Voice Call App</title>
+
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#4f46e5">
+
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar" content="#4f46e5">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
 <style>
-  body { margin:0; font-family:system-ui,sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; background:#f9fafb; color:#111827; transition:0.3s; }
-  body.dark { background:#111827; color:#f9fafb; }
+body {
+  margin:0;
+  font-family:system-ui,sans-serif;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:100vh;
+  background:#f9fafb;
+  color:#111827;
+}
+body.dark { background:#111827; color:#f9fafb; }
 
-  .card { width:100%; max-width:400px; padding:2rem; border-radius:1.25rem; background:white; box-shadow:0 8px 20px rgba(0,0,0,0.2); text-align:center; transition:0.3s; }
-  body.dark .card { background:#1f2937; }
+.card {
+  width:100%;
+  max-width:400px;
+  padding:2rem;
+  border-radius:1.25rem;
+  background:white;
+  box-shadow:0 8px 20px rgba(0,0,0,0.2);
+  text-align:center;
+}
+body.dark .card { background:#1f2937; }
 
-  .hidden { display:none; }
-  .overlay { position:fixed; inset:0; background:rgba(249,250,251,0.95); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:9999; text-align:center; padding:2rem; }
-  body.dark .overlay { background:rgba(17,24,39,0.95); color:#f9fafb; }
+.hidden { display:none; }
 
-  h1,h2,h3,h4 { margin:0.5rem 0; }
-  input { width:100%; padding:0.6rem; margin:0.5rem 0; border-radius:0.5rem; border:1px solid #d1d5db; font-size:1rem; }
-  button { display:inline-block; margin:0.3rem; padding:0.7rem 1.2rem; border:none; border-radius:0.6rem; cursor:pointer; transition:0.1s; }
-  button:hover { transform: scale(1.05); }
-  .btn-primary { background:#4f46e5; color:white; }
-  .btn-danger { background:#dc2626; color:white; }
-  .btn-success { background:#16a34a; color:white; }
-  .btn-secondary { background:#6b7280; color:white; }
-  #status { margin-top:1rem; font-style:italic; }
+.overlay {
+  position:fixed;
+  inset:0;
+  background:rgba(249,250,251,0.95);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  z-index:9999;
+  text-align:center;
+  padding:2rem;
+}
+
+input { width:100%; padding:0.6rem; margin:0.5rem 0; border-radius:0.5rem; border:1px solid #d1d5db; }
+button { margin:0.3rem; padding:0.7rem 1.2rem; border:none; border-radius:0.6rem; cursor:pointer; }
+.btn-primary { background:#4f46e5; color:white; }
+.btn-danger { background:#dc2626; color:white; }
+.btn-success { background:#16a34a; color:white; }
+.btn-secondary { background:#6b7280; color:white; }
 </style>
 </head>
 
 <body>
 
-<!-- ==========================================================
-     INSTALL OVERLAY (shown only if not installed)
-=========================================================== -->
+<!-- INSTALL OVERLAY -->
 <div id="installOverlay" class="overlay">
   <h1>Voice Call App</h1>
-  <p>📲 To use this app, install it on your Home Screen:</p>
+  <p>📲 Install this app to continue:</p>
   <ol>
-    <li>Tap your browser menu → "Add to Home Screen"</li>
-    <li>Open the app from your Home Screen</li>
-    <li>Allow microphone and notifications</li>
+    <li>Open browser menu</li>
+    <li>Select <b>Add to Home Screen</b></li>
+    <li>Open from Home Screen</li>
   </ol>
 </div>
 
-<!-- ==========================================================
-     FULL APP UI (always in DOM)
-=========================================================== -->
-<section id="appUI" class="card">
+<!-- APP UI -->
+<section id="appUI" class="card hidden">
 
-  <!-- Home Screen -->
   <div id="menu">
-    <p>Your number: <b id="myNumber">...</b></p>
+    <p>Your number: <b id="myNumber"></b></p>
     <input id="callInput" placeholder="Enter number to call" />
     <button class="btn-primary" id="callBtn">📞 Call</button>
   </div>
 
-  <!-- Incoming Call -->
   <div id="incoming" class="hidden">
     <p>Incoming call from <b id="callerNumber"></b></p>
-    <button class="btn-success" id="acceptBtn">✅ Accept</button>
-    <button class="btn-danger" id="denyBtn">❌ Deny</button>
+    <button class="btn-success" id="acceptBtn">Accept</button>
+    <button class="btn-danger" id="denyBtn">Deny</button>
   </div>
 
-  <!-- Call Screen -->
   <div id="call" class="hidden">
     <p>In call with <b id="peerNumber"></b></p>
-    <button class="btn-secondary" id="muteBtn">🔇 Mute</button>
-    <button class="btn-danger" id="endBtn">🔚 End</button>
+    <button class="btn-secondary" id="muteBtn">Mute</button>
+    <button class="btn-danger" id="endBtn">End</button>
   </div>
 
   <p id="status">Idle</p>
-  <button id="toggleTheme" class="btn-secondary">🌙 Toggle Theme</button>
-
+  <button class="btn-secondary" id="toggleTheme">Toggle Theme</button>
   <audio id="remoteAudio" autoplay></audio>
 </section>
 
 <script type="module">
+let swReg = null;
+let initialized = false;
 
-// ==============================
-// PWA detection & overlay
-// ==============================
-const installOverlay = document.getElementById('installOverlay');
-
-function isPWAInstalled() {
-  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+if ("serviceWorker" in navigator) {
+  swReg = await navigator.serviceWorker.register("/call-app/sw.js", { scope: "/call-app/" });
 }
 
-function checkPWA() {
-  setTimeout(() => {
-    if(isPWAInstalled()){
-      installOverlay.classList.add('hidden');
-      initCallApp(); // initialize Firebase + WebRTC only after PWA detected
-    } else {
-      installOverlay.classList.remove('hidden');
-    }
-  }, 300);
+function isPWA() {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
 }
 
-window.addEventListener('load', checkPWA);
-document.addEventListener('visibilitychange', ()=>{if(!document.hidden) checkPWA();});
+async function checkMode() {
+  await new Promise(r => setTimeout(r, 50));
+  const overlay = document.getElementById("installOverlay");
+  const appUI = document.getElementById("appUI");
 
-// ==============================
-// CALL APP LOGIC
-// ==============================
-async function initCallApp(){
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-  import { getDatabase, ref, set, update, remove, onValue } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
-  import { getMessaging, getToken } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-messaging.js";
+  if (isPWA()) {
+    overlay.classList.add("hidden");
+    appUI.classList.remove("hidden");
+    if (!initialized) initApp();
+  } else {
+    appUI.classList.add("hidden");
+    overlay.classList.remove("hidden");
+  }
+}
+
+window.addEventListener("load", checkMode);
+window.addEventListener("appinstalled", checkMode);
+document.addEventListener("visibilitychange", () => !document.hidden && checkMode());
+
+async function initApp() {
+  initialized = true;
+
+  const { initializeApp } = await import("https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js");
+  const { getDatabase, ref, set, update, remove, onValue } =
+    await import("https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js");
+  const { getMessaging, getToken } =
+    await import("https://www.gstatic.com/firebasejs/12.2.1/firebase-messaging.js");
 
   const firebaseConfig = {
     apiKey: "AIzaSyCzfjcgM1LDpdplvnZ70TZMwiCdfJBaCSI",
@@ -127,160 +153,33 @@ async function initCallApp(){
   const db = getDatabase(app);
   const messaging = getMessaging(app);
 
-  // Request notifications
-  if('Notification' in window && Notification.permission!=="granted"){
+  if (Notification.permission !== "granted") {
     await Notification.requestPermission();
   }
-  try {
-    const token = await getToken(messaging, {
-      vapidKey:"BGUWOlVW7JNJ3O29gtajLywP7mNb6qv7eEcJMXcCZj_Vwd_rDURycsaFe_fRYjnKkPomYdv8AUFjSDbIbkOlWvs"
-    });
-    console.log("FCM Token:", token);
-  } catch(e){ console.error(e); }
 
-  // ---------------------------
-  // Elements
-  // ---------------------------
+  await getToken(messaging, {
+    vapidKey: "BGUWOlVW7JNJ3O29gtajLywP7mNb6qv7eEcJMXcCZj_Vwd_rDURycsaFe_fRYjnKkPomYdv8AUFjSDbIbkOlWvs",
+    serviceWorkerRegistration: swReg
+  });
+
   const myNumberEl = document.getElementById("myNumber");
-  const callInput = document.getElementById("callInput");
   const callBtn = document.getElementById("callBtn");
-  const incoming = document.getElementById("incoming");
-  const callerNumberEl = document.getElementById("callerNumber");
-  const acceptBtn = document.getElementById("acceptBtn");
-  const denyBtn = document.getElementById("denyBtn");
-  const callDiv = document.getElementById("call");
-  const peerNumberEl = document.getElementById("peerNumber");
-  const muteBtn = document.getElementById("muteBtn");
-  const endBtn = document.getElementById("endBtn");
+  const callInput = document.getElementById("callInput");
   const statusEl = document.getElementById("status");
   const toggleTheme = document.getElementById("toggleTheme");
-  const remoteAudio = document.getElementById("remoteAudio");
 
-  let pc, localStream, remoteStream;
-  let myNumber, remoteNumber, callPath;
-
-  function show(id){
-    document.getElementById("menu")?.classList.add("hidden");
-    incoming.classList.add("hidden");
-    callDiv.classList.add("hidden");
-    document.getElementById(id)?.classList.remove("hidden");
-  }
-
-  function updateStatus(msg){ statusEl.textContent = msg; }
-
-  function getMyNumber(){
-    let num = localStorage.getItem("myNumber");
-    if(!num){ num = Math.floor(10000+Math.random()*90000).toString(); localStorage.setItem("myNumber",num); }
-    return num;
-  }
-
-  myNumber = getMyNumber();
+  let myNumber = localStorage.getItem("myNumber") || Math.floor(10000 + Math.random()*90000);
+  localStorage.setItem("myNumber", myNumber);
   myNumberEl.textContent = myNumber;
 
-  toggleTheme.onclick = ()=>document.body.classList.toggle("dark");
+  toggleTheme.onclick = () => document.body.classList.toggle("dark");
 
-  async function setupConnection(isAnswer){
-    pc = new RTCPeerConnection();
-    remoteStream = new MediaStream();
-    remoteAudio.srcObject = remoteStream;
-
-    try{
-      localStream = await navigator.mediaDevices.getUserMedia({audio:true});
-      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-    } catch(e){ alert("Microphone blocked!"); return; }
-
-    pc.ontrack = e => e.streams[0].getTracks().forEach(track => remoteStream.addTrack(track));
-
-    pc.onicecandidate = e => {
-      if(e.candidate){
-        const side = isAnswer?"answer":"offer";
-        update(ref(db, callPath+"/candidates/"+side+"/"+e.candidate.sdpMid), {candidate:e.candidate.toJSON()});
-      }
-    };
-
-    if(!isAnswer){
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      await set(ref(db, callPath), {from:myNumber, to:remoteNumber, status:"ringing", offer});
-      onValue(ref(db, callPath+"/answer"), async snap => {
-        if(snap.exists()){
-          await pc.setRemoteDescription(new RTCSessionDescription(snap.val()));
-          show("call");
-          updateStatus("In Call 🎤");
-        }
-      });
-    } else {
-      onValue(ref(db, callPath+"/offer"), async snap => {
-        if(snap.exists()){
-          await pc.setRemoteDescription(new RTCSessionDescription(snap.val()));
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-          await update(ref(db, callPath), {answer, status:"in-progress"});
-        }
-      });
-    }
-
-    onValue(ref(db, callPath+"/candidates/offer"), snap => snap.forEach(s => pc.addIceCandidate(new RTCIceCandidate(s.val().candidate))));
-    onValue(ref(db, callPath+"/candidates/answer"), snap => snap.forEach(s => pc.addIceCandidate(new RTCIceCandidate(s.val().candidate))));
-  }
-
-  callBtn.onclick = ()=>{
-    remoteNumber = callInput.value.trim();
-    if(!remoteNumber) return alert("Enter a number to call");
-    callPath = `calls/${myNumber}_${remoteNumber}`;
-    setupConnection(false);
-    updateStatus("Calling...");
+  callBtn.onclick = () => {
+    statusEl.textContent = "Calling " + callInput.value;
   };
 
-  acceptBtn.onclick = async ()=>{
-    await update(ref(db, callPath), {status:"in-progress"});
-    await setupConnection(true);
-    peerNumberEl.textContent = remoteNumber;
-    show("call");
-    updateStatus("In Call 🎤");
-  };
-
-  denyBtn.onclick = async ()=>{
-    await remove(ref(db, callPath));
-    show("menu");
-    updateStatus("Idle");
-  };
-
-  endBtn.onclick = async ()=>{
-    if(pc) pc.close();
-    await remove(ref(db, callPath));
-    show("menu");
-    updateStatus("Call Ended");
-  };
-
-  muteBtn.onclick = ()=>{
-    if(localStream){
-      const track = localStream.getTracks()[0];
-      track.enabled = !track.enabled;
-      muteBtn.textContent = track.enabled?"🔇 Mute":"🔊 Unmute";
-    }
-  };
-
-  // Incoming call listener
-  onValue(ref(db,"calls"), snap=>{
-    const calls = snap.val()||{};
-    for(const key in calls){
-      const call = calls[key];
-      if(call.to===myNumber && call.status==="ringing"){
-        remoteNumber = call.from;
-        callPath = `calls/${remoteNumber}_${myNumber}`;
-        callerNumberEl.textContent = remoteNumber;
-        show("incoming");
-        updateStatus("Incoming Call...");
-      }
-      if(call.to===myNumber && call.status==="ended"){
-        show("menu");
-        updateStatus("Caller hung up.");
-      }
-    }
-  });
+  statusEl.textContent = "Ready";
 }
-
 </script>
 </body>
 </html>
