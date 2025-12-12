@@ -36,7 +36,10 @@ body.dark { background:#111827; color:#f9fafb; }
 }
 body.dark .card { background:#1f2937; }
 
-.hidden { display:none; }
+.hidden { display:none; } /* keep for your internal UI sections */
+
+/* ✅ bulletproof hide */
+[hidden] { display: none !important; }
 
 .overlay {
   position:fixed;
@@ -62,8 +65,8 @@ button { margin:0.3rem; padding:0.7rem 1.2rem; border:none; border-radius:0.6rem
 
 <body>
 
-<!-- INSTALL OVERLAY -->
-<div id="installOverlay" class="overlay">
+<!-- ✅ START HIDDEN. JS decides. -->
+<div id="installOverlay" class="overlay" hidden>
   <h1>Voice Call App</h1>
   <p>Install this app to continue:</p>
   <ol>
@@ -73,8 +76,8 @@ button { margin:0.3rem; padding:0.7rem 1.2rem; border:none; border-radius:0.6rem
   </ol>
 </div>
 
-<!-- APP UI -->
-<section id="appUI" class="card hidden">
+<!-- ✅ START HIDDEN. JS decides. -->
+<section id="appUI" class="card" hidden>
 
   <div id="menu">
     <p>Your number: <b id="myNumber"></b></p>
@@ -98,6 +101,7 @@ button { margin:0.3rem; padding:0.7rem 1.2rem; border:none; border-radius:0.6rem
   <button class="btn-secondary" id="toggleTheme">Toggle Theme</button>
   <audio id="remoteAudio" autoplay></audio>
 </section>
+
 <script type="module">
 (() => {
   const installOverlay = document.getElementById("installOverlay");
@@ -108,47 +112,52 @@ button { margin:0.3rem; padding:0.7rem 1.2rem; border:none; border-radius:0.6rem
   let swReg = null;
 
   function isStandalone() {
-    const mmStandalone = window.matchMedia?.("(display-mode: standalone)")?.matches;
-    const mmFullscreen = window.matchMedia?.("(display-mode: fullscreen)")?.matches;
-    const mmMinimal = window.matchMedia?.("(display-mode: minimal-ui)")?.matches;
+    // iOS: navigator.standalone
     const iOSStandalone = window.navigator.standalone === true;
-    return !!(mmStandalone || mmFullscreen || mmMinimal || iOSStandalone);
+
+    // Modern browsers: display-mode
+    const mql = window.matchMedia?.("(display-mode: standalone)");
+    const standalone = !!mql?.matches;
+
+    // Some environments report minimal-ui/fullscreen
+    const minimal = !!window.matchMedia?.("(display-mode: minimal-ui)")?.matches;
+    const fullscreen = !!window.matchMedia?.("(display-mode: fullscreen)")?.matches;
+
+    return standalone || minimal || fullscreen || iOSStandalone;
   }
 
-  function showInstalledUI() {
-    installOverlay.classList.add("hidden");
-    appUI.classList.remove("hidden");
+  function showApp() {
+    installOverlay.hidden = true;
+    appUI.hidden = false;
   }
 
-  function showInstallOverlay() {
-    appUI.classList.add("hidden");
-    installOverlay.classList.remove("hidden");
+  function showOverlay() {
+    appUI.hidden = true;
+    installOverlay.hidden = false;
   }
 
   async function registerSW() {
     if (!("serviceWorker" in navigator)) return null;
     try {
-      // ✅ correct for https://the-sawfish.github.io/call-app/
       swReg = await navigator.serviceWorker.register("/call-app/sw.js", { scope: "/call-app/" });
       console.log("SW registered:", swReg.scope);
       return swReg;
     } catch (e) {
       console.warn("SW register failed:", e);
-      return null; // do NOT crash the module
+      return null;
     }
   }
 
   async function checkModeAndInit() {
-    await new Promise(r => setTimeout(r, 50)); // helps iOS settle
+    await new Promise(r => setTimeout(r, 50)); // helps iOS settle after launch
 
     const standalone = isStandalone();
     if (statusEl) {
-      statusEl.textContent =
-        (standalone ? "Installed mode ✅" : "Browser mode ❌ (showing install instructions)");
+      statusEl.textContent = standalone ? "Installed mode ✅" : "Browser mode ❌ (showing install instructions)";
     }
 
     if (standalone) {
-      showInstalledUI();
+      showApp();
       if (!initialized) {
         initialized = true;
         await registerSW();
@@ -158,16 +167,24 @@ button { margin:0.3rem; padding:0.7rem 1.2rem; border:none; border-radius:0.6rem
         });
       }
     } else {
-      showInstallOverlay();
+      showOverlay();
     }
   }
 
+  // ✅ iOS PWA often restores from BFCache; pageshow catches it
   window.addEventListener("load", checkModeAndInit);
+  window.addEventListener("pageshow", checkModeAndInit);
   window.addEventListener("appinstalled", checkModeAndInit);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) checkModeAndInit(); });
 
+  // ✅ React to display-mode changes if the browser flips it
+  try {
+    const mql = window.matchMedia("(display-mode: standalone)");
+    mql.addEventListener?.("change", checkModeAndInit);
+    mql.addListener?.(checkModeAndInit); // older Safari
+  } catch {}
+
   async function initCallApp() {
-    // ✅ dynamic imports only
     const { initializeApp } = await import("https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js");
     const { getDatabase, ref, set, update, remove, onValue } =
       await import("https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js");
@@ -201,11 +218,9 @@ button { margin:0.3rem; padding:0.7rem 1.2rem; border:none; border-radius:0.6rem
       console.warn("getToken failed:", e);
     }
 
-    // If we reached here, your app JS is running:
     statusEl.textContent = "Ready ✅";
 
-    // ---- keep your existing call logic below this line ----
-    // (Paste in your existing call logic exactly as you had it.)
+    // ---- paste your full call logic below if needed ----
   }
 })();
 </script>
