@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Voice Call App</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#4f46e5">
@@ -17,80 +17,37 @@
       --text-dark: #f9fafb;
     }
 
-    body {
-      margin: 0;
-      font-family: system-ui, sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      background: var(--bg-light);
-      color: var(--text-light);
-      transition: all 0.3s;
-    }
+    body { margin:0; font-family:system-ui,sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; background:var(--bg-light); color:var(--text-light); transition:0.3s; }
+    body.dark { background:var(--bg-dark); color:var(--text-dark); }
 
-    body.dark { background: var(--bg-dark); color: var(--text-dark); }
+    .card { width:100%; max-width:400px; background:white; padding:2rem; border-radius:1.25rem; box-shadow:0 8px 20px rgba(0,0,0,0.2); text-align:center; transition:0.3s; }
+    body.dark .card { background:#1f2937; }
 
-    .card {
-      width: 100%;
-      max-width: 400px;
-      background: white;
-      padding: 2rem;
-      border-radius: 1.25rem;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-      text-align: center;
-      transition: background 0.3s;
-    }
+    h1 { margin-bottom:1rem; font-size:1.5rem; }
 
-    body.dark .card { background: #1f2937; }
+    input { width:100%; padding:0.6rem; margin:0.5rem 0; border:1px solid #d1d5db; border-radius:0.5rem; font-size:1rem; }
 
-    h1 { margin-bottom: 1rem; font-size: 1.5rem; }
-
-    input {
-      width: 100%;
-      padding: 0.6rem;
-      margin: 0.5rem 0;
-      border: 1px solid #d1d5db;
-      border-radius: 0.5rem;
-      font-size: 1rem;
-    }
-
-    button {
-      display: inline-block;
-      margin: 0.3rem;
-      padding: 0.7rem 1.2rem;
-      font-size: 1rem;
-      border: none;
-      border-radius: 0.6rem;
-      cursor: pointer;
-      transition: transform 0.1s, background 0.2s;
-    }
-
+    button { display:inline-block; margin:0.3rem; padding:0.7rem 1.2rem; font-size:1rem; border:none; border-radius:0.6rem; cursor:pointer; transition:0.1s,0.2s; }
     button:hover { transform: scale(1.05); }
 
-    .btn-primary { background: var(--primary); color: white; }
-    .btn-danger { background: var(--danger); color: white; }
-    .btn-success { background: var(--success); color: white; }
-    .btn-secondary { background: #6b7280; color: white; }
+    .btn-primary { background:var(--primary); color:white; }
+    .btn-danger { background:var(--danger); color:white; }
+    .btn-success { background:var(--success); color:white; }
+    .btn-secondary { background:#6b7280; color:white; }
 
-    #status { margin-top: 1rem; font-style: italic; }
+    #status { margin-top:1rem; font-style:italic; }
 
-    .hidden { display: none; }
+    .hidden { display:none; }
+    .theme-switch { margin-top:1rem; }
 
-    .theme-switch { margin-top: 1rem; }
-
-    #instructions {
-      font-size: 1rem;
-      line-height: 1.5;
-      text-align: left;
-    }
+    #instructions { font-size:1rem; line-height:1.5; text-align:left; }
   </style>
 </head>
 <body>
-  <div class="card" id="container">
+  <div class="card">
     <h1>Voice Call App</h1>
 
-    <!-- Instructions -->
+    <!-- Instructions for browser -->
     <div id="instructions" class="hidden">
       <p>📲 To use this app, you need to install it on your device:</p>
       <ol>
@@ -100,18 +57,23 @@
       </ol>
     </div>
 
-    <!-- App Content -->
+    <!-- App content -->
     <div id="appContent" class="hidden">
-      <p>Your number: <b id="myNumber">...</b></p>
-      <input id="callInput" placeholder="Enter number to call" />
-      <button class="btn-primary" id="callBtn">📞 Call</button>
+      <!-- Home Screen -->
+      <div id="menu">
+        <p>Your number: <b id="myNumber">...</b></p>
+        <input id="callInput" placeholder="Enter number to call" />
+        <button class="btn-primary" id="callBtn">📞 Call</button>
+      </div>
 
+      <!-- Incoming Call -->
       <div id="incoming" class="hidden">
         <p>Incoming call from <b id="callerNumber"></b></p>
         <button class="btn-success" id="acceptBtn">✅ Accept</button>
         <button class="btn-danger" id="denyBtn">❌ Deny</button>
       </div>
 
+      <!-- Call Screen -->
       <div id="call" class="hidden">
         <p>In call with <b id="peerNumber"></b></p>
         <button class="btn-secondary" id="muteBtn">🔇 Mute</button>
@@ -128,43 +90,53 @@
   </div>
 
   <script type="module">
-    window.addEventListener('load', () => {
+    // --------------------------
+    // Standalone detection
+    // --------------------------
+    function checkStandalone() {
       const instructions = document.getElementById("instructions");
       const appContent = document.getElementById("appContent");
 
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
-                           window.navigator.standalone === true;
+      requestAnimationFrame(() => {
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                             window.navigator.standalone === true;
 
-      if(!isStandalone){
-        instructions.classList.remove("hidden");
-        appContent.classList.add("hidden");
-      } else {
-        instructions.classList.add("hidden");
-        appContent.classList.remove("hidden");
-        initApp(); // Run full app logic
-      }
-
-      // Optional install prompt
-      let deferredPrompt;
-      window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        instructions.classList.remove("hidden");
-        instructions.addEventListener('click', async () => {
-          deferredPrompt.prompt();
-          await deferredPrompt.userChoice;
-          deferredPrompt = null;
+        if(!isStandalone){
+          instructions.classList.remove("hidden");
+          appContent.classList.add("hidden");
+        } else {
           instructions.classList.add("hidden");
-        });
+          appContent.classList.remove("hidden");
+          initApp();
+        }
+      });
+    }
+    window.addEventListener('load', checkStandalone);
+
+    // Optional install prompt
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const instructions = document.getElementById("instructions");
+      instructions.classList.remove("hidden");
+      instructions.addEventListener('click', async () => {
+        deferredPrompt.prompt();
+        await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        instructions.classList.add("hidden");
       });
     });
 
+    // --------------------------
+    // Full App Logic
+    // --------------------------
     function initApp() {
-      // --- Firebase and Call Logic ---
       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
       import { getDatabase, ref, set, update, remove, onValue } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
-      import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-messaging.js";
+      import { getMessaging, getToken } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-messaging.js";
 
+      // Firebase config
       const firebaseConfig = {
         apiKey: "AIzaSyCzfjcgM1LDpdplvnZ70TZMwiCdfJBaCSI",
         authDomain: "voice-call-bef3b.firebaseapp.com",
@@ -213,6 +185,7 @@
       let pc, localStream, remoteStream;
       let myNumber, remoteNumber, callPath;
 
+      // --- Helpers ---
       function show(id){
         document.getElementById("menu")?.classList.add("hidden");
         incoming.classList.add("hidden");
@@ -233,9 +206,10 @@
 
       toggleTheme.onclick=()=>document.body.classList.toggle("dark");
 
-      // --- Call setup, buttons, Firebase listeners ---
-      // Reuse all your previous setupConnection, callBtn.onclick, acceptBtn.onclick, denyBtn.onclick, endBtn.onclick,
-      // incoming call listener, mute button, and FCM foreground message handling here
+      // --------------------------
+      // Call setup, buttons, Firebase listeners
+      // Copy your previous setupConnection and button logic here
+      // --------------------------
     }
   </script>
 </body>
