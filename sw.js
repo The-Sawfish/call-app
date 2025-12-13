@@ -14,14 +14,25 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
+  const url = payload?.data?.url || "/call-app/?pwa=1";
   self.registration.showNotification(payload.notification?.title || "Incoming Call", {
     body: payload.notification?.body || "Tap to answer",
     icon: "/call-app/icons/icon-192.png",
-    data: { url: "/call-app/?pwa=1" }
+    data: { url }
   });
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  event.waitUntil(clients.openWindow(event.notification.data.url));
+  const url = event.notification?.data?.url || "/call-app/?pwa=1";
+
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        // if already open, focus
+        if ("focus" in client) return client.focus();
+      }
+      return clients.openWindow(url);
+    })
+  );
 });
