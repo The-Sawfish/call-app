@@ -17,7 +17,7 @@ messaging.onBackgroundMessage((payload) => {
   self.registration.showNotification(payload.notification?.title || "Incoming Call", {
     body: payload.notification?.body || "Tap to answer",
     icon: "/call-app/icons/icon-192.png",
-    data: { url: "/call-app/" }
+    data: { url: "/call-app/?pwa=1" }
   });
 });
 
