@@ -1,8 +1,7 @@
 {
   "name": "Voice Call App",
   "short_name": "CallApp",
-  "description": "Make voice calls directly from your browser.",
-  "start_url": "/call-app/",
+  "start_url": "/call-app/?pwa=1",
   "scope": "/call-app/",
   "display": "standalone",
   "background_color": "#f9fafb",
