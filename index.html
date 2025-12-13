@@ -7,131 +7,84 @@
 
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#4f46e5">
-
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
 <style>
-body {
-  margin:0;
-  font-family:system-ui,sans-serif;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  min-height:100vh;
-  background:#f9fafb;
-  color:#111827;
-}
-body.dark { background:#111827; color:#f9fafb; }
+  body{margin:0;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f9fafb;color:#111827}
+  body.dark{background:#111827;color:#f9fafb}
+  .card{width:100%;max-width:420px;padding:2rem;border-radius:1.25rem;background:white;box-shadow:0 8px 20px rgba(0,0,0,.2);text-align:center}
+  body.dark .card{background:#1f2937}
+  .hidden{display:none}
+  [hidden]{display:none!important}
+  .overlay{position:fixed;inset:0;background:rgba(249,250,251,.95);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;text-align:center;padding:2rem}
+  body.dark .overlay{background:rgba(17,24,39,.95);color:#f9fafb}
 
-.card {
-  width:100%;
-  max-width:420px;
-  padding:2rem;
-  border-radius:1.25rem;
-  background:white;
-  box-shadow:0 8px 20px rgba(0,0,0,0.2);
-  text-align:center;
-}
-body.dark .card { background:#1f2937; }
+  input{width:100%;padding:.6rem;margin:.5rem 0;border-radius:.5rem;border:1px solid #d1d5db;font-size:1rem}
+  button{margin:.3rem;padding:.7rem 1.2rem;border:none;border-radius:.6rem;cursor:pointer}
+  .btn-primary{background:#4f46e5;color:white}
+  .btn-danger{background:#dc2626;color:white}
+  .btn-success{background:#16a34a;color:white}
+  .btn-secondary{background:#6b7280;color:white}
 
-.hidden { display:none; } /* used for internal sections */
+  /* Contacts rows */
+  #contactsList .row{display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.5rem;border:1px solid #e5e7eb;border-radius:.75rem;margin:.35rem 0;background:rgba(255,255,255,.6)}
+  body.dark #contactsList .row{border-color:#374151;background:rgba(31,41,55,.8)}
+  #contactsList .row button{padding:.45rem .7rem}
 
-/* ✅ bulletproof hide for overlay/app container */
-[hidden] { display: none !important; }
-
-.overlay {
-  position:fixed;
-  inset:0;
-  background:rgba(249,250,251,0.95);
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  z-index:9999;
-  text-align:center;
-  padding:2rem;
-}
-body.dark .overlay {
-  background:rgba(17,24,39,0.95);
-  color:#f9fafb;
-}
-
-h1,h2,h3 { margin:0.5rem 0; }
-
-input {
-  width:100%;
-  padding:0.6rem;
-  margin:0.5rem 0;
-  border-radius:0.5rem;
-  border:1px solid #d1d5db;
-  font-size:1rem;
-}
-
-button {
-  margin:0.3rem;
-  padding:0.7rem 1.2rem;
-  border:none;
-  border-radius:0.6rem;
-  cursor:pointer;
-}
-.btn-primary { background:#4f46e5; color:white; }
-.btn-danger { background:#dc2626; color:white; }
-.btn-success { background:#16a34a; color:white; }
-.btn-secondary { background:#6b7280; color:white; }
-
-/* Contacts list rows */
-#contactsList .row{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:0.5rem;
-  padding:0.5rem;
-  border:1px solid #e5e7eb;
-  border-radius:0.75rem;
-  margin:0.35rem 0;
-  background: rgba(255,255,255,0.6);
-}
-body.dark #contactsList .row{
-  border-color:#374151;
-  background: rgba(31,41,55,0.8);
-}
-#contactsList .row button{
-  padding:0.45rem 0.7rem;
-}
+  /* In-app top banner */
+  #topBanner{
+    position:fixed; left:50%; transform:translateX(-50%);
+    top:12px; width:min(520px, calc(100% - 24px));
+    z-index:10000; border-radius:14px; padding:12px 12px;
+    background:rgba(255,255,255,.96); box-shadow:0 8px 24px rgba(0,0,0,.18);
+    border:1px solid rgba(0,0,0,.06);
+  }
+  body.dark #topBanner{background:rgba(31,41,55,.96);border-color:#374151}
 </style>
 </head>
 
 <body>
 
-<!-- ✅ START HIDDEN. JS decides. -->
+<!-- Top banner for foreground “incoming call” -->
+<div id="topBanner" hidden>
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+    <div>
+      <div style="font-weight:700" id="bannerTitle">Incoming call</div>
+      <div style="opacity:.85" id="bannerBody">Someone is calling you</div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn-success" id="bannerAccept">Accept</button>
+      <button class="btn-danger" id="bannerDeny">Deny</button>
+    </div>
+  </div>
+</div>
+
+<!-- Install overlay -->
 <div id="installOverlay" class="overlay" hidden>
   <h1>Voice Call App</h1>
-  <p style="max-width:360px;">
-    📲 To use this app, install it on your Home Screen:
-  </p>
+  <p>📲 To use this app, install it on your Home Screen:</p>
   <ol style="text-align:left; max-width:360px;">
-    <li>Open browser menu</li>
-    <li>Select <b>Add to Home Screen</b></li>
+    <li>Tap your browser menu → <b>Add to Home Screen</b></li>
     <li>Open the app from your Home Screen</li>
     <li>Allow microphone and notifications</li>
   </ol>
-  <p style="opacity:0.8; font-size:0.9rem; max-width:360px;">
-    If you came here from another app, you must install it first.
+  <p style="opacity:.85;max-width:360px;">
+    If you opened this from Sawfish App Store, you must install it first.
   </p>
 </div>
 
-<!-- ✅ START HIDDEN. JS decides. -->
+<!-- App UI -->
 <section id="appUI" class="card" hidden>
 
-  <!-- Top nav -->
-  <div style="display:flex; gap:0.5rem; justify-content:center; margin-bottom:0.75rem;">
+  <!-- Nav -->
+  <div style="display:flex; gap:.5rem; justify-content:center; margin-bottom:.75rem;">
     <button class="btn-secondary" id="navDialer">Dialer</button>
     <button class="btn-secondary" id="navContacts">Contacts</button>
   </div>
 
-  <!-- DIALER PAGE -->
+  <!-- Dialer -->
   <div id="pageDialer">
     <div id="menu">
       <p>Your number: <b id="myNumber">...</b></p>
@@ -152,28 +105,37 @@ body.dark #contactsList .row{
     </div>
   </div>
 
-  <!-- CONTACTS PAGE -->
+  <!-- Contacts -->
   <div id="pageContacts" class="hidden" style="text-align:left;">
-    <h3 style="margin:0.25rem 0 0.5rem;">Contacts</h3>
+    <h3 style="margin:.25rem 0 .5rem;">Contacts</h3>
 
-    <label style="font-size:0.9rem;">Name</label>
+    <label style="font-size:.9rem;">Name</label>
     <input id="contactName" placeholder="e.g., Mom" />
 
-    <label style="font-size:0.9rem;">Number (5 digits)</label>
+    <label style="font-size:.9rem;">Number (5 digits)</label>
     <input id="contactNumber" placeholder="e.g., 12345" inputmode="numeric" maxlength="5" />
 
-    <div style="display:flex; gap:0.5rem;">
+    <div style="display:flex; gap:.5rem;">
       <button class="btn-success" id="addContactBtn" style="flex:1;">Save</button>
       <button class="btn-secondary" id="clearContactsBtn" style="flex:1;">Clear All</button>
     </div>
 
-    <div style="margin-top:0.75rem;">
-      <div style="font-size:0.9rem; opacity:0.8; margin-bottom:0.25rem;">Saved</div>
+    <div style="margin-top:.75rem;">
+      <div style="font-size:.9rem; opacity:.8; margin-bottom:.25rem;">Saved</div>
       <div id="contactsList"></div>
     </div>
   </div>
 
-  <p id="status">Idle</p>
+  <!-- Settings -->
+  <div style="margin-top:.5rem; text-align:left;">
+    <label style="display:flex;align-items:center;gap:.5rem;">
+      <input type="checkbox" id="muteNotifs">
+      Silence call notifications
+    </label>
+    <button class="btn-secondary" id="mute1hBtn">Mute 1 hour</button>
+  </div>
+
+  <p id="status" style="margin-top:1rem;">Idle</p>
   <button class="btn-secondary" id="toggleTheme">Toggle Theme</button>
 
   <audio id="remoteAudio" autoplay></audio>
@@ -182,7 +144,7 @@ body.dark #contactsList .row{
 <script type="module">
 (() => {
   // ==========================================================
-  // ✅ DO NOT BREAK: overlay/PWA logic (kept)
+  // ✅ DO NOT BREAK: overlay logic (unchanged structure)
   // ==========================================================
   const installOverlay = document.getElementById("installOverlay");
   const appUI = document.getElementById("appUI");
@@ -199,14 +161,11 @@ body.dark #contactsList .row{
     return standalone || minimal || fullscreen || iOSStandalone;
   }
 
-  // ✅ deterministic “force instructions” when opened from Sawfish
   function forcedInstructions() {
     try {
       const url = new URL(location.href);
       return url.searchParams.get("from") === "sawfish";
-    } catch {
-      return false;
-    }
+    } catch { return false; }
   }
 
   function showApp() {
@@ -234,7 +193,6 @@ body.dark #contactsList .row{
   async function checkModeAndInit() {
     await new Promise(r => setTimeout(r, 50));
 
-    // If opened from Sawfish (or any external launcher), ALWAYS show instructions
     if (forcedInstructions()) {
       if (statusEl) statusEl.textContent = "Browser mode ❌ (opened from Sawfish)";
       showOverlay();
@@ -242,9 +200,7 @@ body.dark #contactsList .row{
     }
 
     const standalone = isStandalone();
-    if (statusEl) {
-      statusEl.textContent = standalone ? "Installed mode ✅" : "Browser mode ❌ (showing install instructions)";
-    }
+    if (statusEl) statusEl.textContent = standalone ? "Installed mode ✅" : "Browser mode ❌ (showing install instructions)";
 
     if (standalone) {
       showApp();
@@ -273,7 +229,7 @@ body.dark #contactsList .row{
   } catch {}
 
   // ==========================================================
-  // APP LOGIC (theme + contacts + calls + foreground notifications)
+  // App logic (includes push token + mute preference syncing)
   // ==========================================================
   async function initCallApp() {
     const { initializeApp } = await import("https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js");
@@ -327,6 +283,17 @@ body.dark #contactsList .row{
     const clearContactsBtn = document.getElementById("clearContactsBtn");
     const contactsList = document.getElementById("contactsList");
 
+    // Notification mute UI
+    const muteNotifs = document.getElementById("muteNotifs");
+    const mute1hBtn = document.getElementById("mute1hBtn");
+
+    // Top banner
+    const topBanner = document.getElementById("topBanner");
+    const bannerTitle = document.getElementById("bannerTitle");
+    const bannerBody = document.getElementById("bannerBody");
+    const bannerAccept = document.getElementById("bannerAccept");
+    const bannerDeny = document.getElementById("bannerDeny");
+
     // Theme
     const savedTheme = localStorage.getItem("theme");
     if (savedTheme === "dark") document.body.classList.add("dark");
@@ -361,46 +328,22 @@ body.dark #contactsList .row{
     const myNumber = getMyNumber();
     myNumberEl.textContent = myNumber;
 
-    // Notifications permission + token
-    if ("Notification" in window && Notification.permission !== "granted") {
-      await Notification.requestPermission();
+    // Helpers
+    function updateStatus(msg){ statusEl.textContent = msg; }
+    function show(id){
+      document.getElementById("menu")?.classList.add("hidden");
+      incoming.classList.add("hidden");
+      callDiv.classList.add("hidden");
+      document.getElementById(id)?.classList.remove("hidden");
     }
 
-    try {
-      await getToken(messaging, {
-        vapidKey: "BGUWOlVW7JNJ3O29gtajLywP7mNb6qv7eEcJMXcCZj_Vwd_rDURycsaFe_fRYjnKkPomYdv8AUFjSDbIbkOlWvs",
-        serviceWorkerRegistration: swReg || undefined
-      });
-    } catch (e) {
-      console.warn("getToken failed:", e);
-    }
-
-    // Foreground notifications (when app open)
-    onMessage(messaging, (payload) => {
-      console.log("Foreground FCM message:", payload);
-      if ("Notification" in window && Notification.permission === "granted") {
-        const title = payload?.notification?.title || "Incoming Call";
-        const body  = payload?.notification?.body  || "You have a new call";
-        const n = new Notification(title, {
-          body,
-          icon: "/call-app/icons/icon-192.png",
-          data: { url: "/call-app/" }
-        });
-        n.onclick = () => window.focus();
-      }
-    });
-
-    // Contacts storage
     function escapeHtml(s) {
       return String(s).replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;" }[m]));
     }
-    function loadContacts() {
-      try { return JSON.parse(localStorage.getItem("contacts") || "[]"); }
-      catch { return []; }
-    }
-    function saveContacts(list) {
-      localStorage.setItem("contacts", JSON.stringify(list));
-    }
+
+    // Contacts storage
+    function loadContacts() { try { return JSON.parse(localStorage.getItem("contacts") || "[]"); } catch { return []; } }
+    function saveContacts(list) { localStorage.setItem("contacts", JSON.stringify(list)); }
     function renderContacts() {
       const list = loadContacts();
       contactsList.innerHTML = "";
@@ -448,25 +391,15 @@ body.dark #contactsList .row{
     addContactBtn.onclick = () => {
       const name = (contactName.value || "").trim();
       const number = (contactNumber.value || "").trim();
-
       if (!name) return alert("Enter a name");
       if (!/^\d{5}$/.test(number)) return alert("Enter a 5 digit number");
 
       const list = loadContacts();
       const existing = list.find(x => x.number === number);
+      if (existing) existing.name = name;
+      else list.push({ id: crypto.randomUUID?.() || String(Date.now()), name, number });
 
-      if (existing) {
-        existing.name = name;
-        saveContacts(list);
-      } else {
-        list.push({
-          id: crypto.randomUUID?.() || String(Date.now()),
-          name,
-          number
-        });
-        saveContacts(list);
-      }
-
+      saveContacts(list);
       contactName.value = "";
       contactNumber.value = "";
       renderContacts();
@@ -480,50 +413,135 @@ body.dark #contactsList .row{
 
     renderContacts();
 
-    // Call helpers
-    function show(id) {
-      document.getElementById("menu")?.classList.add("hidden");
-      incoming.classList.add("hidden");
-      callDiv.classList.add("hidden");
-      document.getElementById(id)?.classList.remove("hidden");
+    // Mute settings
+    function isMutedNow() {
+      const muted = localStorage.getItem("notifMuted") === "1";
+      const until = Number(localStorage.getItem("muteUntil") || "0");
+      return muted || (until && Date.now() < until);
     }
-    function updateStatus(msg) { statusEl.textContent = msg; }
 
+    function syncMuteUI() {
+      muteNotifs.checked = isMutedNow();
+    }
+
+    async function pushSettingsToDb() {
+      // (token stored later if we have it)
+      await update(ref(db, `users/${myNumber}/push`), {
+        muted: (localStorage.getItem("notifMuted") === "1"),
+        muteUntil: Number(localStorage.getItem("muteUntil") || "0"),
+        updatedAt: Date.now()
+      });
+    }
+
+    syncMuteUI();
+
+    muteNotifs.onchange = async () => {
+      localStorage.setItem("notifMuted", muteNotifs.checked ? "1" : "0");
+      if (!muteNotifs.checked) localStorage.setItem("muteUntil", "0");
+      await pushSettingsToDb();
+      syncMuteUI();
+    };
+
+    mute1hBtn.onclick = async () => {
+      localStorage.setItem("notifMuted", "0");
+      localStorage.setItem("muteUntil", String(Date.now() + 60 * 60 * 1000));
+      await pushSettingsToDb();
+      syncMuteUI();
+      alert("Muted for 1 hour");
+    };
+
+    // Notifications permission + token
+    if ("Notification" in window && Notification.permission !== "granted") {
+      await Notification.requestPermission();
+    }
+
+    let fcmToken = null;
+    try {
+      fcmToken = await getToken(messaging, {
+        vapidKey: "BGUWOlVW7JNJ3O29gtajLywP7mNb6qv7eEcJMXcCZj_Vwd_rDURycsaFe_fRYjnKkPomYdv8AUFjSDbIbkOlWvs",
+        serviceWorkerRegistration: swReg || undefined
+      });
+      if (fcmToken) {
+        await set(ref(db, `users/${myNumber}/push`), {
+          token: fcmToken,
+          muted: (localStorage.getItem("notifMuted") === "1"),
+          muteUntil: Number(localStorage.getItem("muteUntil") || "0"),
+          updatedAt: Date.now()
+        });
+      }
+    } catch (e) {
+      console.warn("getToken failed:", e);
+    }
+
+    // Foreground notifications: show top banner, optionally system Notification
+    function showBanner(fromNumber) {
+      bannerTitle.textContent = "Incoming call";
+      bannerBody.textContent = `${fromNumber} is calling you`;
+      topBanner.hidden = false;
+    }
+    function hideBanner() { topBanner.hidden = true; }
+
+    onMessage(messaging, (payload) => {
+      // Only if not muted
+      if (isMutedNow()) return;
+
+      const url = payload?.data?.url || "";
+      let from = payload?.data?.from || "";
+
+      // If server sets only URL like /call-app/?pwa=1&action=incoming&from=12345
+      try {
+        if (url) {
+          const u = new URL(url, location.origin);
+          from = from || (u.searchParams.get("from") || "");
+        }
+      } catch {}
+
+      if (/^\d{5}$/.test(from)) {
+        showBanner(from);
+      }
+
+      // optional: also show system notification while app is open
+      if ("Notification" in window && Notification.permission === "granted") {
+        const title = payload?.notification?.title || "Incoming Call";
+        const body = payload?.notification?.body || "Tap to answer";
+        new Notification(title, {
+          body,
+          icon: "/call-app/icons/icon-192.png"
+        });
+      }
+    });
+
+    // WebRTC / Call logic (same as your RTDB approach)
     let pc, localStream, remoteStream;
     let remoteNumber = null;
     let callPath = null;
 
-    async function setupConnection(isAnswer) {
+    async function setupConnection(isAnswer){
       pc = new RTCPeerConnection();
       remoteStream = new MediaStream();
       remoteAudio.srcObject = remoteStream;
 
-      try {
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      try{
+        localStream = await navigator.mediaDevices.getUserMedia({audio:true});
         localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-      } catch (e) {
-        alert("Microphone blocked!");
-        return;
-      }
+      } catch(e){ alert("Microphone blocked!"); return; }
 
       pc.ontrack = e => e.streams[0].getTracks().forEach(track => remoteStream.addTrack(track));
 
       pc.onicecandidate = e => {
-        if (e.candidate) {
+        if(e.candidate){
           const side = isAnswer ? "answer" : "offer";
-          update(ref(db, callPath + "/candidates/" + side + "/" + e.candidate.sdpMid), {
-            candidate: e.candidate.toJSON()
-          });
+          update(ref(db, callPath + "/candidates/" + side + "/" + e.candidate.sdpMid), {candidate:e.candidate.toJSON()});
         }
       };
 
-      if (!isAnswer) {
+      if(!isAnswer){
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-        await set(ref(db, callPath), { from: myNumber, to: remoteNumber, status: "ringing", offer });
+        await set(ref(db, callPath), {from:myNumber, to:remoteNumber, status:"ringing", offer});
 
         onValue(ref(db, callPath + "/answer"), async snap => {
-          if (snap.exists()) {
+          if(snap.exists()){
             await pc.setRemoteDescription(new RTCSessionDescription(snap.val()));
             peerNumberEl.textContent = remoteNumber;
             show("call");
@@ -532,83 +550,103 @@ body.dark #contactsList .row{
         });
       } else {
         onValue(ref(db, callPath + "/offer"), async snap => {
-          if (snap.exists()) {
+          if(snap.exists()){
             await pc.setRemoteDescription(new RTCSessionDescription(snap.val()));
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
-            await update(ref(db, callPath), { answer, status: "in-progress" });
+            await update(ref(db, callPath), {answer, status:"in-progress"});
           }
         });
       }
 
-      onValue(ref(db, callPath + "/candidates/offer"), snap =>
-        snap.forEach(s => pc.addIceCandidate(new RTCIceCandidate(s.val().candidate)))
-      );
-      onValue(ref(db, callPath + "/candidates/answer"), snap =>
-        snap.forEach(s => pc.addIceCandidate(new RTCIceCandidate(s.val().candidate)))
-      );
+      onValue(ref(db, callPath + "/candidates/offer"), snap => snap.forEach(s => pc.addIceCandidate(new RTCIceCandidate(s.val().candidate))));
+      onValue(ref(db, callPath + "/candidates/answer"), snap => snap.forEach(s => pc.addIceCandidate(new RTCIceCandidate(s.val().candidate))));
     }
 
-    callBtn.onclick = () => {
-      remoteNumber = callInput.value.trim();
-      if (!/^\d{5}$/.test(remoteNumber)) return alert("Enter a 5 digit number");
-      if (remoteNumber === myNumber) return alert("You can't call yourself 🙂");
+    function openIncoming(fromNum) {
+      remoteNumber = fromNum;
+      callPath = `calls/${remoteNumber}_${myNumber}`;
+      callerNumberEl.textContent = remoteNumber;
+      show("incoming");
+      updateStatus("Incoming Call...");
+      showBanner(remoteNumber);
+    }
 
+    // Banner actions map to same accept/deny
+    bannerAccept.onclick = () => acceptBtn.click();
+    bannerDeny.onclick = () => denyBtn.click();
+
+    callBtn.onclick = ()=>{
+      remoteNumber = callInput.value.trim();
+      if(!/^\d{5}$/.test(remoteNumber)) return alert("Enter a 5 digit number");
+      if(remoteNumber === myNumber) return alert("You can't call yourself 🙂");
       callPath = `calls/${myNumber}_${remoteNumber}`;
       setupConnection(false);
       peerNumberEl.textContent = remoteNumber;
       updateStatus("Calling...");
     };
 
-    acceptBtn.onclick = async () => {
-      await update(ref(db, callPath), { status: "in-progress" });
+    acceptBtn.onclick = async ()=>{
+      hideBanner();
+      await update(ref(db, callPath), {status:"in-progress"});
       await setupConnection(true);
       peerNumberEl.textContent = remoteNumber;
       show("call");
       updateStatus("In Call 🎤");
     };
 
-    denyBtn.onclick = async () => {
+    denyBtn.onclick = async ()=>{
+      hideBanner();
       await remove(ref(db, callPath));
       show("menu");
       updateStatus("Idle");
     };
 
-    endBtn.onclick = async () => {
-      if (pc) pc.close();
+    endBtn.onclick = async ()=>{
+      hideBanner();
+      if(pc) pc.close();
       await remove(ref(db, callPath));
       show("menu");
       updateStatus("Call Ended");
     };
 
-    muteBtn.onclick = () => {
-      if (localStream) {
+    muteBtn.onclick = ()=>{
+      if(localStream){
         const track = localStream.getTracks()[0];
         track.enabled = !track.enabled;
         muteBtn.textContent = track.enabled ? "Mute" : "Unmute";
       }
     };
 
-    // Incoming call listener
-    onValue(ref(db, "calls"), snap => {
-      const calls = snap.val() || {};
-      for (const key in calls) {
+    // Incoming call listener (also triggers banner when foreground)
+    onValue(ref(db,"calls"), snap=>{
+      const calls = snap.val()||{};
+      for(const key in calls){
         const call = calls[key];
-        if (call.to === myNumber && call.status === "ringing") {
-          remoteNumber = call.from;
-          callPath = `calls/${remoteNumber}_${myNumber}`;
-          callerNumberEl.textContent = remoteNumber;
-          show("incoming");
-          updateStatus("Incoming Call...");
+        if(call.to===myNumber && call.status==="ringing"){
+          const fromNum = call.from;
+          if (/^\d{5}$/.test(fromNum)) {
+            openIncoming(fromNum);
+          }
         }
       }
     });
+
+    // Deep-link: open the incoming screen when notification click opens URL
+    try {
+      const u = new URL(location.href);
+      if (u.searchParams.get("action") === "incoming") {
+        const from = u.searchParams.get("from") || "";
+        if (/^\d{5}$/.test(from)) {
+          openIncoming(from);
+        }
+      }
+    } catch {}
 
     show("menu");
     updateStatus("Ready ✅");
   }
 })();
 </script>
-
 </body>
 </html>
